@@ -1,0 +1,10 @@
+torch
+torchvision
+numpy
+opencv
+spacy
+tensorboardX
+albumentations
+pillow
+pycocotools
+pyyaml
