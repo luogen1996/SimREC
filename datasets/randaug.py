@@ -18,7 +18,6 @@
 # https://github.com/rpmcruz/autoaugment/blob/master/transformations.py
 # --------------------------------------------------------
 
-
 import random
 import numpy as np
 import PIL, PIL.ImageOps, PIL.ImageEnhance, PIL.ImageDraw

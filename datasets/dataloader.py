@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import os
 import cv2
 import json, re, en_vectors_web_lg, random
@@ -30,6 +29,7 @@ from torchvision.transforms import transforms
 
 from datasets.randaug import RandAugment
 from utils.utils import label2yolobox
+
 
 class RefCOCODataSet(Data.Dataset):
     def __init__(self, __C,split):
