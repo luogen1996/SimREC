@@ -1,7 +1,7 @@
 torch
 torchvision
 numpy
-opencv
+opencv-python
 spacy
 tensorboardX
 albumentations
