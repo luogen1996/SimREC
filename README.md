@@ -8,7 +8,7 @@ SimREC is a simple and lightweight codebase for the research of referring expres
 
 
 <p align="center">
-	<img src="./SimREC.jpg" width="550">
+	<img src="./misc/SimREC.jpg" width="550">
 </p>
 
 
