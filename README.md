@@ -49,6 +49,10 @@ SimREC supports all benchmarks of REC and RES, and  can easily achieve  very com
 |   RES   |    ✓    |    ✓     |    ✓     |    ✓    |   ×    |            ×             |
 | REC+RES |    ✓    |    ✓     |    ✓     |    ✓    |   ×    |            ×             |
 
+## License
+
+This project is released under the [Apache 2.0 license](LICENSE).
+
 ## Citation
 
 If this repository is helpful for your research, or you want to refer the provided results in your paper, you can cite the corresponding paper:
