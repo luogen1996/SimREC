@@ -2,21 +2,20 @@
 
 [![Python](https://img.shields.io/badge/python-blue.svg)](https://www.python.org/)
 ![PyTorch](https://img.shields.io/badge/pytorch-%237732a8)
-[![MAC-Group](https://img.shields.io/badge/mac-group-orange.svg)](https://mac.xmu.edu.cn/)
+![MAC-Group](https://img.shields.io/badge/mac-group-orange.svg)](https://mac.xmu.edu.cn/)
 
-SimREC is a simple and lightweight codebase for the research of referring expression comprehension and segmentation, with  supporting large-scale pre-training and multi-task learning.   SimREC includes official implementation for our paper  "[Multi-task Collaborative Network for Joint Referring Expression Comprehension and Segmentation](https://openaccess.thecvf.com/content_CVPR_2020/papers/Luo_Multi-Task_Collaborative_Network_for_Joint_Referring_Expression_Comprehension_and_Segmentation_CVPR_2020_paper.pdf)" and  "[What Goes beyond Multi-modal Fusion in One-stage Referring Expression Comprehension: An Empirical Study](https://arxiv.org/pdf/2204.07913.pdf)" .  More models will be updated. 
+SimREC is a simple and lightweight codebase for the research of referring expression comprehension and segmentation,  supporting large-scale pre-training and multi-task learning.   SimREC includes the official implementations of our paper  "[Multi-task Collaborative Network for Joint Referring Expression Comprehension and Segmentation](https://openaccess.thecvf.com/content_CVPR_2020/papers/Luo_Multi-Task_Collaborative_Network_for_Joint_Referring_Expression_Comprehension_and_Segmentation_CVPR_2020_paper.pdf)" and  "[What Goes beyond Multi-modal Fusion in One-stage Referring Expression Comprehension: An Empirical Study](https://arxiv.org/pdf/2204.07913.pdf)" .  More models will be updated. 
 
 
 <p align="center">
-	<img src="./misc/SimREC.jpg" width="550">
+	<img src="./SimREC.jpg" width="550">
 </p>
 
 
 ## Updates
-- (2022/4/20) A novel point-based prediction paradigm [SeqTR](https://arxiv.org/abs/2203.16265) is released in [here](https://github.com/sean-zhuh/SeqTR), which will be updated in this repository soon.
+- (2022/4/20) A novel point-based prediction paradigm [SeqTR](https://arxiv.org/abs/2203.16265) is released in [here](https://github.com/sean-zhuh/SeqTR), which will be updated in this repository.
 - (2022/4/20) Implement MCN for SimREC project.
 - (2022/4/19) Release our SimREC project.
-
 ## Installation
 ```
 pip install -r requirements.txt
@@ -30,12 +29,12 @@ pip install en_vectors_web_lg-2.1.0.tar.gz
 
 ## Training and Evaluation 
 
-1. Preparing your settings. To train a model, you should  modify ``./config/config.yaml``  to adjust the settings  you want. 
-2. Training the model. run ` train.py`  under the main folder to start training:
+1. Prepare your settings. To train a model, you should  modify ``./config/config.yaml``  to adjust the settings  you want. 
+2. Train the model. run ` train.py`  under the main folder to start training:
 ```
 python train.py --config ./config/config.yaml
 ```
-3. Testing the model.   Then, you can run ` test.py`  by
+3. Test the model.   Then, you can run ` test.py`  by
 ```
 python test.py --eval-weights ./logs/simrec/1/weights/det_best.pth
 ```
@@ -49,10 +48,6 @@ SimREC supports all benchmarks of REC and RES, and  can easily achieve  very com
 |   REC   |    ✓    |    ✓     |    ✓     |    ✓    |   ✓    |            ✓             |
 |   RES   |    ✓    |    ✓     |    ✓     |    ✓    |   ×    |            ×             |
 | REC+RES |    ✓    |    ✓     |    ✓     |    ✓    |   ×    |            ×             |
-
-## License
-
-This project is released under the [Apache 2.0 license](LICENSE).
 
 ## Citation
 

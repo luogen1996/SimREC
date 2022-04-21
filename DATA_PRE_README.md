@@ -39,7 +39,7 @@ python data_process.py --data_root $DATA_PREP --output_dir $DATA_PREP --dataset 
 ```
 ​	For Flickr and merged pre-training data, we provide the pre-processed json files: [flickr.json](https://1drv.ms/u/s!AmrFUyZ_lDVGim3OYlbaTGP7hzZV?e=rhFf29), [merge.json](https://1drv.ms/u/s!AmrFUyZ_lDVGim7ufJ41Z0anf0A4?e=vraV1O).
 
-​	Note that merged pre-training data contains the training data from RefCOCO *train*,  RefCOCO+ *train*, RefCOCOg  *train*, Referit *train*, Flickr *train* and VG. We also remove the images appearing the validation and testing set.
+​	Note that the merged pre-training data contains the training data from RefCOCO *train*,  RefCOCO+ *train*, RefCOCOg  *train*, Referit *train*, Flickr *train* and VG. We also remove the images appearing the validation and testing set of RefCOCO, RefCOCO+ and RefCOCOg.
 
 4. At this point the directory  $DATA_PREP should look like: 
 ```
