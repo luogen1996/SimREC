@@ -8,7 +8,7 @@ SimREC is a simple and lightweight codebase for the research of referring expres
 
 
 <p align="center">
-	<img src="./SimREC.jpg" width="550">
+	<img src="./misc/SimREC.jpg" width="550">
 </p>
 
 
@@ -16,6 +16,7 @@ SimREC is a simple and lightweight codebase for the research of referring expres
 - (2022/4/20) A novel point-based prediction paradigm [SeqTR](https://arxiv.org/abs/2203.16265) is released in [here](https://github.com/sean-zhuh/SeqTR), which will be updated in this repository soon.
 - (2022/4/20) Implement MCN for SimREC project.
 - (2022/4/19) Release our SimREC project.
+
 ## Installation
 ```
 pip install -r requirements.txt
