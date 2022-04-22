@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers.conv_layer import *
+from simrec.layers.conv_layer import *
 
 
 class CollectDiffuseAttention(nn.Module):
