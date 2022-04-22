@@ -27,7 +27,6 @@ showMask   - show mask of the referred object given ref
 import sys
 import os.path as osp
 import json
-# import _pickle  as pickle
 import pickle
 import time
 import itertools
@@ -38,8 +37,7 @@ from matplotlib.patches import Polygon, Rectangle
 from pprint import pprint
 import numpy as np
 from pycocotools import mask
-# import cv2
-# from skimage.measure import label, regionprops
+
 
 class REFER:
 

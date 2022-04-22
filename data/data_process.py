@@ -1,13 +1,15 @@
 # encoding=utf8
 # %matplotlib inline
-import numpy as np
+
 import os
-import sys
-from refer import REFER
 import os.path as osp
+import numpy as np
 import cv2
 import json
 import argparse
+
+from refer import REFER
+
 parser = argparse.ArgumentParser(description='Data preparation')
 parser.add_argument('--data_root',  type=str) # contains refclef, refcoco, refcoco+, refcocog and images
 parser.add_argument('--output_dir',  type=str)
