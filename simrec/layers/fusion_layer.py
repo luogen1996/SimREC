@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from simrec.layers.conv_layer import *
+from .blocks import darknet_conv
 
 
 class CollectDiffuseAttention(nn.Module):

@@ -20,7 +20,7 @@ import torch.nn as nn
 from torch.backends import cudnn
 
 from simrec.utils.parse_darknet_weights import parse_yolo_weights
-from simrec.layers.conv_layer import *
+from simrec.layers.blocks import vgg_conv, darknet_conv, darknetblock
 from torchvision.models.resnet import resnet34,resnet101,resnet18
 from simrec.utils.ResNetD import ResNetV1c
 
