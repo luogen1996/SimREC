@@ -16,6 +16,7 @@
 import os
 import cv2
 import json, re, en_vectors_web_lg, random
+from cv2 import transform
 
 import albumentations as A
 import numpy as np
@@ -27,27 +28,46 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
+from simrec.config import configurable
 from simrec.datasets.randaug import RandAugment
 from simrec.utils.utils import label2yolobox
 
 
 class RefCOCODataSet(Data.Dataset):
-    def __init__(self, __C,split):
+
+    @configurable
+    def __init__(self, 
+                 ann_path, 
+                 image_path, 
+                 mask_path, 
+                 input_shape, 
+                 flip_lr, 
+                 transforms, 
+                 candidate_transforms, 
+                 use_glove=True, 
+                 split="train", 
+        dataset="refcoco"):
         super(RefCOCODataSet, self).__init__()
-        self.__C = __C
         self.split=split
-        assert  __C.DATASET in ['refcoco', 'refcoco+', 'refcocog','referit','vg','merge']
+
+        assert  dataset in ['refcoco', 'refcoco+', 'refcocog','referit','vg','merge']
+        self.dataset = dataset
+
         # --------------------------
         # ---- Raw data loading ---
         # --------------------------
-        stat_refs_list=json.load(open(__C.ANN_PATH[__C.DATASET], 'r'))
+        stat_refs_list=json.load(open(ann_path[dataset], 'r'))
         total_refs_list=[]
-        if __C.DATASET in ['vg','merge']:
-            total_refs_list = json.load(open(__C.ANN_PATH['merge'], 'r'))+json.load(open(__C.ANN_PATH['refcoco+'], 'r'))+json.load(open(__C.ANN_PATH['refcocog'], 'r'))+json.load(open(__C.ANN_PATH['refcoco'], 'r'))
+        if dataset in ['vg','merge']:
+            total_refs_list = json.load(open(ann_path['merge'], 'r')) + \
+                              json.load(open(ann_path['refcoco+'], 'r')) + \
+                              json.load(open(ann_path['refcocog'], 'r')) + \
+                              json.load(open(ann_path['refcoco'], 'r'))
 
         self.ques_list = []
         splits=split.split('+')
         self.refs_anno=[]
+        
         for split_ in splits:
             self.refs_anno+= stat_refs_list[split_]
 
@@ -58,6 +78,7 @@ class RefCOCODataSet(Data.Dataset):
             for ann in stat_refs_list[split]:
                 for ref in ann['refs']:
                     refs.append(ref)
+        
         for split in total_refs_list:
             for ann in total_refs_list[split]:
                 for ref in ann['refs']:
@@ -65,10 +86,12 @@ class RefCOCODataSet(Data.Dataset):
 
 
 
-        self.image_path=__C.IMAGE_PATH[__C.DATASET]
-        self.mask_path=__C.MASK_PATH[__C.DATASET]
-        self.input_shape=__C.INPUT_SHAPE
-        self.flip_lr=__C.FLIP_LR if split=='train' else False
+        self.image_path=image_path[dataset]
+        self.mask_path=mask_path[dataset]
+        self.input_shape=input_shape
+
+        self.flip_lr = flip_lr if split=='train' else False
+        
         # Define run data size
         self.data_size = len(self.refs_anno)
 
@@ -77,29 +100,36 @@ class RefCOCODataSet(Data.Dataset):
         # ---- Data statistic ----
         # ------------------------
         # Tokenize
-        self.token_to_ix,self.ix_to_token, self.pretrained_emb, max_token = self.tokenize(stat_refs_list, __C.USE_GLOVE)
+        self.token_to_ix,self.ix_to_token, self.pretrained_emb, max_token = self.tokenize(stat_refs_list, use_glove)
         self.token_size = self.token_to_ix.__len__()
         print(' ========== Question token vocab size:', self.token_size)
 
         self.max_token = __C.MAX_TOKEN
         if self.max_token == -1:
             self.max_token = max_token
+        
         print('Max token length:', max_token, 'Trimmed to:', self.max_token)
         print('Finished!')
         print('')
 
-        self.candidate_transforms ={}
-        if  self.split == 'train':
-            if 'RandAugment' in self.__C.DATA_AUGMENTATION:
-                self.candidate_transforms['RandAugment']=RandAugment(2,9)
-            if 'ElasticTransform' in self.__C.DATA_AUGMENTATION:
-                self.candidate_transforms['ElasticTransform']=A.ElasticTransform(p=0.5)
-            if 'GridDistortion' in self.__C.DATA_AUGMENTATION:
-                self.candidate_transforms['GridDistortion']=A.GridDistortion(p=0.5)
-            if 'RandomErasing' in self.__C.DATA_AUGMENTATION:
-                self.candidate_transforms['RandomErasing']=transforms.RandomErasing(p=0.3, scale=(0.02, 0.2), ratio=(0.05, 8),
-                                                                              value="random")
-        self.transforms=transforms.Compose([transforms.ToTensor(), transforms.Normalize(__C.MEAN, __C.STD)])
+        # self.candidate_transforms ={}
+        # if  self.split == 'train':
+        #     if 'RandAugment' in self.__C.DATA_AUGMENTATION:
+        #         self.candidate_transforms['RandAugment']=RandAugment(2,9)
+        #     if 'ElasticTransform' in self.__C.DATA_AUGMENTATION:
+        #         self.candidate_transforms['ElasticTransform']=A.ElasticTransform(p=0.5)
+        #     if 'GridDistortion' in self.__C.DATA_AUGMENTATION:
+        #         self.candidate_transforms['GridDistortion']=A.GridDistortion(p=0.5)
+        #     if 'RandomErasing' in self.__C.DATA_AUGMENTATION:
+        #         self.candidate_transforms['RandomErasing']=transforms.RandomErasing(p=0.3, scale=(0.02, 0.2), ratio=(0.05, 8),
+        #                                                                       value="random")
+        if split == 'train':
+            self.candidate_transforms = candidate_transforms
+        else:
+            self.candidate_transforms = {}
+
+        # self.transforms=transforms.Compose([transforms.ToTensor(), transforms.Normalize(__C.MEAN, __C.STD)])
+        self.transforms = transforms
 
 
 
@@ -208,13 +238,13 @@ class RefCOCODataSet(Data.Dataset):
 
     def load_img_feats(self, idx):
         img_path=None
-        if self.__C.DATASET in ['refcoco','refcoco+','refcocog']:
+        if self.dataset in ['refcoco','refcoco+','refcocog']:
             img_path=os.path.join(self.image_path,'COCO_train2014_%012d.jpg'%self.refs_anno[idx]['iid'])
-        elif self.__C.DATASET=='referit':
+        elif self.dataset=='referit':
             img_path = os.path.join(self.image_path, '%d.jpg' % self.refs_anno[idx]['iid'])
-        elif self.__C.DATASET=='vg':
+        elif self.dataset=='vg':
             img_path = os.path.join(self.image_path, self.refs_anno[idx]['url'])
-        elif self.__C.DATASET == 'merge':
+        elif self.dataset == 'merge':
             if self.refs_anno[idx]['data_source']=='coco':
                 iid='COCO_train2014_%012d.jpg'%int(self.refs_anno[idx]['iid'].split('.')[0])
             else:
@@ -225,7 +255,7 @@ class RefCOCODataSet(Data.Dataset):
 
         image= cv2.imread(img_path)
 
-        if self.__C.DATASET in ['refcoco','refcoco+','refcocog','referit']:
+        if self.dataset in ['refcoco','refcoco+','refcocog','referit']:
             mask=np.load(os.path.join(self.mask_path,'%d.npy'%self.refs_anno[idx]['mask_id']))
         else:
             mask=np.zeros([image.shape[0],image.shape[1],1],dtype=np.float)
@@ -240,8 +270,10 @@ class RefCOCODataSet(Data.Dataset):
         image_iter,mask_iter,gt_box_iter,mask_id,iid= self.load_img_feats(idx)
         image_iter = cv2.cvtColor(image_iter, cv2.COLOR_BGR2RGB)
         ops=None
+
         if len(list(self.candidate_transforms.keys()))>0:
             ops = random.choices(list(self.candidate_transforms.keys()), k=1)[0]
+        
         if ops is not None and ops!='RandomErasing':
             image_iter = self.candidate_transforms[ops](image=image_iter)['image']
 
