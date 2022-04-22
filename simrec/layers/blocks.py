@@ -16,10 +16,18 @@
 import torch
 import torch.nn as nn
 
+# helpers
+def autopad(k, p=None):  # kernel, padding
+    # Pad to 'same'
+    if p is None:
+        p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
+    return p
+
 
 def vgg_conv(in_ch, out_ch, ksize, stride):
     """
-    Add a vgg conv block.
+    Build a VGG-style convolution block.
+    
     Args:
         in_ch (int): number of input channels of the convolution layer.
         out_ch (int): number of output channels of the convolution layer.
@@ -36,14 +44,18 @@ def vgg_conv(in_ch, out_ch, ksize, stride):
     stage.add_module('relu', nn.ReLU())
     return stage
 
-def darknet_conv(in_ch, out_ch, ksize, stride=1,dilation_rate=1):
+
+def darknet_conv(in_ch, out_ch, ksize, stride=1, dilation_rate=1):
     """
-    Add a conv2d / batchnorm / leaky ReLU block.
+    Add a darknet-style convolution block as Conv-Bn-LeakyReLU.
+    
     Args:
         in_ch (int): number of input channels of the convolution layer.
         out_ch (int): number of output channels of the convolution layer.
         ksize (int): kernel size of the convolution layer.
         stride (int): stride of the convolution layer.
+        dilation_rate (int): spacing between kernel elements.
+    
     Returns:
         stage (Sequential) : Sequential layers composing a convolution block.
     """
@@ -61,6 +73,7 @@ class darknetblock(nn.Module):
     """
     Sequential residual blocks each of which consists of \
     two convolution layers.
+    
     Args:
         ch (int): number of input and output channels.
         nblocks (int): number of residual blocks.
@@ -85,23 +98,49 @@ class darknetblock(nn.Module):
             x = x + h if self.shortcut else h
         return x
 
-class aspp_decoder(nn.Module):
-    def __init__(self, planes,hidden_planes,out_planes):
+
+class ConvBnAct(nn.Module):
+    """
+    Standard Conv-Bn-Activation Layer
+    """
+
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
         super().__init__()
-        self.conv0 = darknet_conv(planes, hidden_planes, ksize=1, stride=1)
-        self.conv1 = darknet_conv(planes, hidden_planes, ksize=3, stride=1,dilation_rate=6)
-        self.conv2 = darknet_conv(planes, hidden_planes, ksize=3, stride=1,dilation_rate=12)
-        self.conv3 = darknet_conv(planes, hidden_planes, ksize=3, stride=1,dilation_rate=18)
-        self.conv4 = darknet_conv(planes, hidden_planes, ksize=1, stride=1)
-        self.pool=nn.AdaptiveAvgPool2d(1)
-        self.out_proj= nn.Conv2d(hidden_planes*5,out_planes,1)
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+
     def forward(self, x):
-        b,c,h,w=x.size()
-        b0=self.conv0(x)
-        b1=self.conv1(x)
-        b2=self.conv2(x)
-        b3=self.conv3(x)
-        b4=self.conv4(self.pool(x)).repeat(1,1,h,w)
-        x=torch.cat([b0,b1,b2,b3,b4],1)
-        x=self.out_proj(x)
-        return x
+        return self.act(self.bn(self.conv(x)))
+
+    def forward_fuse(self, x):
+        return self.act(self.conv(x))
+
+
+class Bottleneck(nn.Module):
+    # Standard bottleneck
+    def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = ConvBnAct(c1, c_, 1, 1)
+        self.cv2 = ConvBnAct(c_, c2, 3, 1, g=g)
+        self.add = shortcut and c1 == c2
+
+    def forward(self, x):
+        return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
+
+
+class C3Block(nn.Module):
+    """
+    CSP Bottleneck with 3 convolutions
+    """
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = ConvBnAct(c1, c_, 1, 1)
+        self.cv2 = ConvBnAct(c1, c_, 1, 1)
+        self.cv3 = ConvBnAct(2 * c_, c2, 1)  # act=FReLU(c2)
+        self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))

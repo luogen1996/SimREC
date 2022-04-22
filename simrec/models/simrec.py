@@ -16,18 +16,18 @@
 import torch
 import torch.nn as nn
 
-from simrec.models.simrec.head import REChead
-from simrec.models.language_encoder import language_encoder
-from simrec.models.visual_encoder import visual_encoder
+from simrec.models.heads.rec_heads import REChead
+from simrec.models.language_encoders.build import build_language_encoder
+from simrec.models.backbones.build import build_visual_encoder
 from simrec.layers.fusion_layer import MultiScaleFusion,SimpleFusion,GaranAttention
 
 torch.backends.cudnn.enabled=False
 
-class Net(nn.Module):
+class SimREC(nn.Module):
     def __init__(self, __C, pretrained_emb, token_size):
-        super(Net, self).__init__()
-        self.visual_encoder=visual_encoder(__C)
-        self.lang_encoder=language_encoder(__C,pretrained_emb,token_size)
+        super(SimREC, self).__init__()
+        self.visual_encoder=build_visual_encoder(__C)
+        self.lang_encoder=build_language_encoder(__C,pretrained_emb,token_size)
         self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, __C.HIDDEN_SIZE), scaled=True)
         self.fusion_manner=nn.ModuleList(
             [
@@ -47,6 +47,7 @@ class Net(nn.Module):
                 self.frozen(self.visual_encoder.model[:-2])
             else:
                 self.frozen(self.visual_encoder)
+    
     def frozen(self,module):
         if getattr(module,'module',False):
             for child in module.module():
@@ -55,45 +56,26 @@ class Net(nn.Module):
         else:
             for param in module.parameters():
                 param.requires_grad = False
+    
     def forward(self,x,y, det_label=None,seg_label=None):
 
         x=self.visual_encoder(x)
+        
         y=self.lang_encoder(y)
+        
         for i in range(len(self.fusion_manner)):
             x[i]=self.fusion_manner[i](x[i],y['flat_lang_feat'])
+        
         x=self.multi_scale_manner(x)
+        
         top_feats,_,_=self.attention_manner(y['flat_lang_feat'],x[-1])
+        
         bot_feats=x[0]
+        
         if self.training:
             loss,loss_det,loss_seg=self.head(top_feats,bot_feats,det_label,seg_label)
             return loss,loss_det,loss_seg
+        
         else:
             box, mask=self.head(top_feats,bot_feats)
             return box,mask
-
-
-if __name__ == '__main__':
-    class Cfg():
-        def __init__(self):
-            super(Cfg, self).__init__()
-            self.USE_GLOVE = False
-            self.WORD_EMBED_SIZE = 300
-            self.HIDDEN_SIZE = 512
-            self.N_SA = 0
-            self.FLAT_GLIMPSES = 8
-            self.DROPOUT_R = 0.1
-            self.LANG_ENC = 'lstm'
-            self.VIS_ENC = 'darknet'
-            self.VIS_PRETRAIN = True
-            self.PRETTRAIN_WEIGHT = './darknet.weights'
-            self.ANCHORS = [[116, 90], [156, 198], [373, 326]]
-            self.ANCH_MASK = [[0, 1, 2]]
-            self.N_CLASSES = 0
-            self.VIS_FREEZE = True
-    cfg=Cfg()
-    model=Net(cfg,torch.zeros(1),100)
-    # model.train()
-    img=torch.zeros(2,3,224,224)
-    lang=torch.randint(10,(2,14))
-    seg, det=model(img,lang)
-    print(seg.size(),det.size())

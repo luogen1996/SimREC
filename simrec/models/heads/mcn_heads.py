@@ -17,10 +17,10 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from simrec.layers.aspp import aspp_decoder
 from simrec.utils.utils import bboxes_iou
-from simrec.layers.conv_layer import aspp_decoder
-from simrec.layers.losses import *
 
 
 class MCNhead(nn.Module):
@@ -49,7 +49,7 @@ class MCNhead(nn.Module):
         self.ignore_thre = ignore_thre
         self.l2_loss = nn.MSELoss(reduction='none')
         self.bce_loss = nn.BCELoss(reduction='none')
-        self.stride = 32#strides[layer_no]
+        self.stride = 32 #strides[layer_no]
         self.all_anchors_grid = [(w / self.stride, h / self.stride)
                                  for w, h in self.anchors]
         self.masked_anchors = [self.all_anchors_grid[i]

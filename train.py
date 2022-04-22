@@ -16,17 +16,10 @@ from simrec.utils.logging import *
 from simrec.utils.ckpt import *
 from simrec.utils.distributed import *
 
+from simrec.models.build import build_model
+
 from test import validate
 
-class ModelLoader:
-    def __init__(self, __C):
-
-        self.model_use = __C.MODEL
-        model_moudle_path = 'simrec.models.' + self.model_use + '.net'
-        self.model_moudle = import_module(model_moudle_path)
-
-    def Net(self, __arg1, __arg2, __arg3):
-        return self.model_moudle.Net(__arg1, __arg2, __arg3)
 
 def train_one_epoch(__C,
                     net,
@@ -132,11 +125,7 @@ def main_worker(gpu,__C):
     val_set=RefCOCODataSet(__C,split='val')
     val_loader=loader(__C,val_set,gpu,shuffle=False)
 
-    net= ModelLoader(__C).Net(
-        __C,
-        train_set.pretrained_emb,
-        train_set.token_size
-    )
+    net = build_model(__C, train_set.pretrained_emb, train_set.token_size)
 
     #optimizer
     params = filter(lambda p: p.requires_grad, net.parameters())#split_weights(net)
