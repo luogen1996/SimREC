@@ -1,25 +1,28 @@
-from utils.distributed import *
-import torch.multiprocessing as mp
-from utils.ckpt import *
-from torch.nn.parallel import DistributedDataParallel as DDP
-from utils.logging import *
 import argparse
 import time
-from utils import config
-from datasets.dataloader import loader,RefCOCODataSet
-from tensorboardX import SummaryWriter
-from utils.utils import *
-import torch.optim as Optim
 from importlib import import_module
+from tensorboardX import SummaryWriter
+
+import torch.optim as Optim
 import torch.nn.functional as F
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+from simrec.utils.utils import *
+from simrec.utils.utils import EMA
+from simrec.utils import config
+from simrec.datasets.dataloader import loader,RefCOCODataSet
+from simrec.utils.logging import *
+from simrec.utils.ckpt import *
+from simrec.utils.distributed import *
+
 from test import validate
-from utils.utils import  EMA
 
 class ModelLoader:
     def __init__(self, __C):
 
         self.model_use = __C.MODEL
-        model_moudle_path = 'models.' + self.model_use + '.net'
+        model_moudle_path = 'simrec.models.' + self.model_use + '.net'
         self.model_moudle = import_module(model_moudle_path)
 
     def Net(self, __arg1, __arg2, __arg3):

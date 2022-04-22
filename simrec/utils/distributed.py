@@ -23,7 +23,7 @@ import torch as th
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from utils.logging import AverageMeter
+from simrec.utils.logging import AverageMeter
 
 
 def seed_everything(SEED: Optional[int]):

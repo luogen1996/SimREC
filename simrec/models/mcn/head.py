@@ -18,9 +18,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from utils.utils import bboxes_iou
-from layers.conv_layer import aspp_decoder
-from layers.losses import *
+from simrec.utils.utils import bboxes_iou
+from simrec.layers.conv_layer import aspp_decoder
+from simrec.layers.losses import *
 
 
 class MCNhead(nn.Module):

@@ -16,8 +16,8 @@
 import torch
 import  torch.nn as nn
 
-from layers.sa_layer import SA,AttFlat
-from utils.utils import make_mask
+from simrec.layers.sa_layer import SA,AttFlat
+from simrec.utils.utils import make_mask
 
 
 class LSTM_SA(nn.Module):

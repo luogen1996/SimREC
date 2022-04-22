@@ -16,10 +16,10 @@
 import torch
 import torch.nn as nn
 
-from models.simrec.head import REChead
-from models.language_encoder import language_encoder
-from models.visual_encoder import visual_encoder
-from layers.fusion_layer import MultiScaleFusion,SimpleFusion,GaranAttention
+from simrec.models.simrec.head import REChead
+from simrec.models.language_encoder import language_encoder
+from simrec.models.visual_encoder import visual_encoder
+from simrec.layers.fusion_layer import MultiScaleFusion,SimpleFusion,GaranAttention
 
 torch.backends.cudnn.enabled=False
 
