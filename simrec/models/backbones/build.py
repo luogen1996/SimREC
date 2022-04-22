@@ -14,6 +14,6 @@ backbone_dict={
     'cspdarknet':CspDarkNet
 }
 
-def visual_encoder(__C):
+def build_visual_encoder(__C):
     vis_enc=backbone_dict[__C.VIS_ENC](__C,multi_scale_outputs=True)
     return vis_enc

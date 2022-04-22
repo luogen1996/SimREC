@@ -19,6 +19,6 @@ backbone_dict={
     'lstm':LSTM_SA,
 }
 
-def language_encoder(__C, pretrained_emb, token_size):
+def build_language_encoder(__C, pretrained_emb, token_size):
     lang_enc=backbone_dict[__C.LANG_ENC](__C, pretrained_emb, token_size)
     return lang_enc
