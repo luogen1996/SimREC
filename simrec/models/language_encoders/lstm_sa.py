@@ -14,9 +14,9 @@
 # limitations under the License.
 
 import torch
-import  torch.nn as nn
+import torch.nn as nn
 
-from simrec.layers.sa_layer import SA,AttFlat
+from simrec.layers.sa_layer import SA, AttFlat
 from simrec.utils.utils import make_mask
 
 
@@ -43,8 +43,10 @@ class LSTM_SA(nn.Module):
 
         self.sa_list = nn.ModuleList([SA(__C) for _ in range(__C.N_SA)])
         self.att_flat=AttFlat(__C)
+        
         if __C.EMBED_FREEZE:
             self.frozen(self.embedding)
+    
     def frozen(self, module):
         if getattr(module, 'module', False):
             for child in module.module():
@@ -53,6 +55,7 @@ class LSTM_SA(nn.Module):
         else:
             for param in module.parameters():
                 param.requires_grad = False
+    
     def forward(self, ques_ix):
 
         # Pre-process Language Feature
@@ -70,12 +73,3 @@ class LSTM_SA(nn.Module):
             'lang_feat':lang_feat,
             'lang_feat_mask':lang_feat_mask
         }
-
-
-backbone_dict={
-    'lstm':LSTM_SA,
-}
-
-def language_encoder(__C, pretrained_emb, token_size):
-    lang_enc=backbone_dict[__C.LANG_ENC](__C, pretrained_emb, token_size)
-    return lang_enc
