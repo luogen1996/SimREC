@@ -16,10 +16,10 @@
 import torch
 import torch.nn as nn
 
-from models.mcn.head import MCNhead
-from models.language_encoder import language_encoder
-from models.visual_encoder import visual_encoder
-from layers.fusion_layer import SimpleFusion,MultiScaleFusion,GaranAttention
+from simrec.models.mcn.head import MCNhead
+from simrec.models.language_encoder import language_encoder
+from simrec.models.visual_encoder import visual_encoder
+from simrec.layers.fusion_layer import SimpleFusion,MultiScaleFusion,GaranAttention
 
 
 class Net(nn.Module):

@@ -11,7 +11,7 @@ import random
 import torch.optim.lr_scheduler as lr_scheduler
 import math
 import torch.nn as nn
-from layers.sa_layer import LayerNorm
+
 # --------------------------------------------------------
 # Deformable Convolutional Networks
 # Copyright (c) 2017 Microsoft
@@ -20,13 +20,10 @@ from layers.sa_layer import LayerNorm
 # --------------------------------------------------------
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 #%matplotlib inline
 import matplotlib.cm as cm
 import numpy as np
-from timm.scheduler.cosine_lr import CosineLRScheduler
-from timm.scheduler.step_lr import StepLRScheduler
-from timm.scheduler.scheduler import Scheduler
+
 
 class EMA(object):
     '''

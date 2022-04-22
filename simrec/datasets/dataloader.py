@@ -27,8 +27,8 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from datasets.randaug import RandAugment
-from utils.utils import label2yolobox
+from simrec.datasets.randaug import RandAugment
+from simrec.utils.utils import label2yolobox
 
 
 class RefCOCODataSet(Data.Dataset):

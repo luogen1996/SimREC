@@ -1,17 +1,18 @@
-from utils.distributed import *
-import torch.multiprocessing as mp
-from utils.ckpt import *
-from torch.nn.parallel import DistributedDataParallel as DDP
-from utils.logging import *
 import argparse
 import time
-from utils import config
-import math
-from datasets.dataloader import loader,RefCOCODataSet
 from tensorboardX import SummaryWriter
-from utils.utils import *
-import torch.optim as Optim
 from importlib import import_module
+
+import torch.optim as Optim
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+from simrec.utils.ckpt import *
+from simrec.utils.logging import *
+from simrec.utils.distributed import *
+from simrec.utils import config
+from simrec.datasets.dataloader import loader,RefCOCODataSet
+from simrec.utils.utils import *
 
 class ModelLoader:
     def __init__(self, __C):
