@@ -22,7 +22,7 @@ from torch.backends import cudnn
 from simrec.utils.parse_darknet_weights import parse_yolo_weights
 from simrec.layers.blocks import vgg_conv, darknet_conv, darknetblock
 from torchvision.models.resnet import resnet34,resnet101,resnet18
-from simrec.utils.ResNetD import ResNetV1c
+from simrec.models.backbones.ResNetD import ResNetV1c
 
 class CspDarkNet(nn.Module):
     def __init__(self, __C,multi_scale_outputs=False):

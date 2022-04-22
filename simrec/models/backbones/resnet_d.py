@@ -1,10 +1,26 @@
+# coding=utf-8
+# Copyright 2022 The SimREC Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import torch
 import torch.nn as nn
 import torch.utils.checkpoint as cp
+
 from mmcv.cnn import (build_conv_layer, build_norm_layer, build_plugin_layer,
                       constant_init, kaiming_init)
-from mmcv.runner import load_checkpoint,load_state_dict
+from mmcv.runner import load_checkpoint, load_state_dict
 from mmcv.utils.parrots_wrapper import _BatchNorm
-import torch
 
 class ResLayer(nn.Sequential):
     """ResLayer to build ResNet style backbone.
@@ -95,6 +111,8 @@ class ResLayer(nn.Sequential):
                     norm_cfg=norm_cfg,
                     **kwargs))
         super(ResLayer, self).__init__(*layers)
+
+
 class BasicBlock(nn.Module):
     """Basic block for ResNet."""
 
