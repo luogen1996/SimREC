@@ -56,18 +56,18 @@ def setup_gpu_env():
     return _USEs
 
 
-def main_process(__C,rank):
-    return not __C.MULTIPROCESSING_DISTRIBUTED or (__C.MULTIPROCESSING_DISTRIBUTED and rank == 0)
+def main_process(cfg, rank):
+    return not cfg.train.distributed.enabled or (cfg.train.distributed.enabled and rank == 0)
 
 
-def setup_distributed(__C,rank: int, backend: str = 'NCCL'):
+def setup_distributed(cfg, rank: int, backend: str = 'NCCL'):
     if not dist.is_available():
         raise ModuleNotFoundError('torch.distributed package not found')
 
-    if __C.WORLD_SIZE > len(__C.GPU):
+    if cfg.train.distributed.world_size > len(cfg.train.gpus):
         assert '127.0.0.1' not in __C.DIST_URL, "DIST_URL is illegal with multi nodes distributed training"
 
-    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=__C.WORLD_SIZE, init_method=__C.DIST_URL)
+    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.distributed.world_size, init_method=__C.DIST_URL)
 
     if not dist.is_initialized():
         raise ValueError('init_process_group failed')
@@ -77,14 +77,14 @@ def cleanup_distributed():
     dist.destroy_process_group()
 
 
-def reduce_meters(meters, rank, __C):
+def reduce_meters(meters, rank, cfg):
     """Sync and flush meters."""
     assert isinstance(meters, dict), "collect AverageMeters into a dict"
     for name in sorted(meters.keys()):
         meter = meters[name]
         if not isinstance(meter, AverageMeter):
             raise TypeError("meter should be AverageMeter type")
-        if not __C.MULTIPROCESSING_DISTRIBUTED:  # single gpu
+        if not cfg.train.distributed.enabled:  # single gpu
             meter.update_reduce(meter.avg)
         else:
             avg = th.tensor(meter.avg).unsqueeze(0).to(rank)
@@ -92,6 +92,6 @@ def reduce_meters(meters, rank, __C):
             # print("rank {} gathering {} meter".format(rank, name))
             # print("rank {}, avg {}, avg_reduce {}".format(rank, avg, avg_reduce))
             dist.all_gather(avg_reduce, avg)
-            if main_process(__C,rank):
+            if main_process(cfg, rank):
                 value = th.mean(th.cat(avg_reduce)).item()
                 meter.update_reduce(value)

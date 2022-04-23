@@ -1,9 +1,9 @@
 from simrec.config import LazyCall
 
 train = dict(
-    gpus = [2],
+    gpus = [0],
     num_workers = 8,
-
+    tag = "test",
     # Directory where output files are written
     output_dir = "./output",
 
@@ -23,4 +23,6 @@ train = dict(
     multi_scale = [[224,224],[256,256],[288,288],[320,320],[352,352],
                    [384,384],[416,416],[448,448],[480,480],[512,512],
                    [544,544],[576,576],[608,608]]
+
+    grad_norm_clip = 0.15
 )

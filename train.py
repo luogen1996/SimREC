@@ -21,7 +21,7 @@ from simrec.models.build import build_model
 from test import validate
 
 
-def train_one_epoch(__C,
+def train_one_epoch(cfg,
                     net,
                     optimizer,
                     scheduler,
@@ -32,7 +32,7 @@ def train_one_epoch(__C,
                     rank,
                     ema=None):
     net.train()
-    if __C.MULTIPROCESSING_DISTRIBUTED:
+    if cfg.train.distributed.enabled:
         loader.sampler.set_epoch(epoch)
 
     batches = len(loader)
@@ -44,7 +44,7 @@ def train_one_epoch(__C,
     lr = AverageMeter('lr', ':.5f')
     meters = [batch_time, data_time, losses,losses_det,losses_seg,lr]
     meters_dict = {meter.name: meter for meter in meters}
-    progress = ProgressMeter(__C.VERSION,__C.EPOCHS, len(loader), meters, prefix='Train: ')
+    progress = ProgressMeter(cfg.train.tag, cfg.train.epochs, len(loader), meters, prefix='Train: ')
     end = time.time()
 
     for ith_batch, data in enumerate(loader):
@@ -57,8 +57,8 @@ def train_one_epoch(__C,
         box_iter = box_iter.cuda( non_blocking=True)
 
         #random resize
-        if len(__C.MULTI_SCALE)>1:
-            h,w=__C.MULTI_SCALE[np.random.randint(0,len(__C.MULTI_SCALE))]
+        if len(cfg.train.multi_scale)>1:
+            h,w=cfg.train.multi_scale[np.random.randint(0,len(cfg.train.multi_scale))]
             image_iter=F.interpolate(image_iter,(h,w))
             mask_iter=F.interpolate(mask_iter,(h,w))
 
@@ -72,20 +72,20 @@ def train_one_epoch(__C,
         if scalar is not None:
             scalar.scale(loss).backward()
             scalar.step(optimizer)
-            if __C.GRAD_NORM_CLIP > 0:
+            if cfg.train.grad_norm_clip > 0:
                 nn.utils.clip_grad_norm_(
                     net.parameters(),
-                    __C.GRAD_NORM_CLIP
+                    cfg.train.grad_norm_clip
                 )
             scalar.update()
         else:
             loss.backward()
             # for p in list(filter(lambda p: p.grad is not None, net.parameters())):
             #     print(p.grad.data)
-            if __C.GRAD_NORM_CLIP > 0:
+            if cfg.train.grad_norm_clip > 0:
                 nn.utils.clip_grad_norm_(
                     net.parameters(),
-                    __C.GRAD_NORM_CLIP
+                    cfg.train.grad_norm_clip
                 )
             optimizer.step()
         scheduler.step()
