@@ -21,11 +21,31 @@ from simrec.utils.utils import make_mask
 
 
 class LSTM_SA(nn.Module):
+    """
+    Building LSTM - SelfAttention layer
+
+    Args:
+        depth (int): the depth of self-attention layers
+        hidden_size (int): the size of the hidden states
+        num_heads (int): number of attention heads
+        ffn_size (int): size for the feed-forward nets
+        freeze_embedding (bool): freeze the weights of embedding layer or not
+    """
+
     def __init__(
         self, 
-        hidden_size, 
-        word_embed_size, 
-        , dropout_rate, use_glove, pretrained_emb, token_size):
+        depth,
+        hidden_size,
+        num_heads,
+        ffn_size,
+        flat_glimpses,
+        dropout_rate,
+        word_embed_size,
+        pretrained_emb, 
+        token_size,
+        freeze_embedding=True,
+        use_glove=True,
+    ):
         super(LSTM_SA, self).__init__()
         self.embedding = nn.Embedding(
             num_embeddings=token_size,
@@ -45,10 +65,10 @@ class LSTM_SA(nn.Module):
             bidirectional=False
         )
 
-        self.sa_list = nn.ModuleList([SA(__C) for _ in range(__C.N_SA)])
-        self.att_flat=AttFlat(__C)
+        self.sa_list = nn.ModuleList([SA(hidden_size, num_heads, ffn_size, dropout_rate) for _ in range(depth)])
+        self.att_flat=AttFlat(hidden_size, flat_glimpses, dropout_rate)
         
-        if __C.EMBED_FREEZE:
+        if freeze_embedding:
             self.frozen(self.embedding)
     
     def frozen(self, module):
