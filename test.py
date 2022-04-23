@@ -1,16 +1,25 @@
-import argparse
+import os
 import time
+import argparse
+import numpy as np
 from tensorboardX import SummaryWriter
 
+import torch
 import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.nn import DataParallel as DP
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from simrec.config import instantiate, LazyConfig
-from simrec.utils.ckpt import *
-from simrec.utils.logging import *
-from simrec.utils.distributed import *
+
+
 from simrec.datasets.dataloader import build_loader
-from simrec.utils.utils import *
+from simrec.datasets.utils import yolobox2label
+from simrec.models.utils import batch_box_iou, mask_processing, mask_iou
+from simrec.utils.distributed import seed_everything, main_process, reduce_meters, find_free_port
+from simrec.utils.visualize import draw_visualization, normed2original
+from simrec.utils.env import seed_everything, setup_unique_version
+from simrec.utils.metric import AverageMeter, ProgressMeter
 
 
 def validate(cfg,
@@ -40,7 +49,7 @@ def validate(cfg,
     meters = [batch_time, data_time, losses, box_ap, mask_ap,inconsistency_error]
     meters_dict = {meter.name: meter for meter in meters}
     progress = ProgressMeter(cfg.train.version, cfg.train.epochs, len(loader), meters, prefix=prefix+': ')
-    with th.no_grad():
+    with torch.no_grad():
         end = time.time()
         for ith_batch, data in enumerate(loader):
             ref_iter, image_iter, mask_iter, box_iter,gt_box_iter, mask_id, info_iter = data
@@ -222,9 +231,9 @@ def main_worker(gpu, cfg):
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
     if cfg.train.amp:
-        assert th.__version__ >= '1.6.0', \
+        assert torch.__version__ >= '1.6.0', \
             "Automatic Mixed Precision training only supported in PyTorch-1.6.0 or higher"
-        scalar = th.cuda.amp.GradScaler()
+        scalar = torch.cuda.amp.GradScaler()
     else:
         scalar = None
 
@@ -237,7 +246,7 @@ def main_worker(gpu, cfg):
     for loader_,prefix_ in zip(loaders,prefixs):
         print()
         box_ap,mask_ap=validate(cfg, net, loader_ , writer, 0, gpu, val_set.ix_to_token,save_ids=save_ids,prefix=prefix_)
-        print(box_ap,mask_ap)
+        print(box_ap, mask_ap)
 
 
 def main():
