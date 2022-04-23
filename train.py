@@ -225,7 +225,7 @@ def main_worker(gpu,__C):
                 torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
                            os.path.join(__C.LOG_PATH, str(__C.VERSION),'ckpt', 'det_best.pth'))
-            if mask_ap>best_seg_acc:
+            if mask_ap > best_seg_acc:
                 best_seg_acc=mask_ap
                 torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},

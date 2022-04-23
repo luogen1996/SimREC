@@ -28,14 +28,11 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from simrec.config import configurable
 from simrec.datasets.transforms.randaug import RandAugment
 from simrec.utils.utils import label2yolobox
 
 
 class RefCOCODataSet(Data.Dataset):
-
-    @configurable
     def __init__(self, 
                  ann_path, 
                  image_path, 
@@ -44,6 +41,7 @@ class RefCOCODataSet(Data.Dataset):
                  flip_lr, 
                  transforms, 
                  candidate_transforms, 
+                 max_token_length,
                  use_glove=True, 
                  split="train", 
         dataset="refcoco"):
@@ -104,7 +102,7 @@ class RefCOCODataSet(Data.Dataset):
         self.token_size = self.token_to_ix.__len__()
         print(' ========== Question token vocab size:', self.token_size)
 
-        self.max_token = __C.MAX_TOKEN
+        self.max_token = max_token_length
         if self.max_token == -1:
             self.max_token = max_token
         
@@ -130,7 +128,6 @@ class RefCOCODataSet(Data.Dataset):
 
         # self.transforms=transforms.Compose([transforms.ToTensor(), transforms.Normalize(__C.MEAN, __C.STD)])
         self.transforms = transforms
-
 
 
     def tokenize(self, stat_refs_list, use_glove):
@@ -297,32 +294,6 @@ class RefCOCODataSet(Data.Dataset):
     def shuffle_list(self, list):
         random.shuffle(list)
 
-def loader(__C,dataset: torch.utils.data.Dataset, rank: int, shuffle,drop_last=False):
-    if __C.MULTIPROCESSING_DISTRIBUTED:
-        assert __C.BATCH_SIZE % len(__C.GPU) == 0
-        assert __C.NUM_WORKER % len(__C.GPU) == 0
-        assert dist.is_initialized()
-
-        dist_sampler = DistributedSampler(dataset,
-                                          num_replicas=__C.WORLD_SIZE,
-                                          rank=rank)
-
-        data_loader = DataLoader(dataset,
-                                 batch_size=__C.BATCH_SIZE // len(__C.GPU),
-                                 shuffle=shuffle,
-                                 sampler=dist_sampler,
-                                 num_workers=__C.NUM_WORKER //len(__C.GPU),
-                                 pin_memory=True,
-                                 drop_last=drop_last)  # ,
-                                # prefetch_factor=_C['PREFETCH_FACTOR'])  only works in PyTorch 1.7.0
-    else:
-        data_loader = DataLoader(dataset,
-                                 batch_size=__C.BATCH_SIZE,
-                                 shuffle=shuffle,
-                                 num_workers=__C.NUM_WORKER,
-                                 pin_memory=True,
-                                 drop_last=drop_last)
-    return data_loader
 
 if __name__ == '__main__':
 

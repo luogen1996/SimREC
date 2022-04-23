@@ -15,9 +15,9 @@
 
 import math
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
 
 
 class FC(nn.Module):
@@ -68,67 +68,32 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.linear(self.fc(x))
-# class AttFlat(nn.Module):
-#     def __init__(self, v_in,v_mid,v_out):
-#         super(AttFlat, self).__init__()
-#         self.v_in=v_in
-#         self.v_mid=v_mid
-#         self.v_out=v_out
-#         self.mlp = MLP(
-#             in_size=v_in,
-#             mid_size=v_mid,
-#             out_size=v_out//v_in,
-#             dropout_r=0.1,
-#             use_relu=True
-#         )
-#
-#         self.linear_merge = nn.Linear(
-#             v_out,
-#             v_out
-#         )
-#
-#     def forward(self, x, x_mask):
-#         att = self.mlp(x)
-#         att = att.masked_fill(
-#             x_mask.squeeze(1).squeeze(1).unsqueeze(2),
-#             -1e9
-#         )
-#         att = F.softmax(att, dim=1)
-#
-#         att_list = []
-#         for i in range(1):
-#             att_list.append(
-#                 torch.sum(att[:, :, i: i + 1] * x, dim=1)
-#             )
-#
-#         x_atted = torch.cat(att_list, dim=1)
-#         x_atted = self.linear_merge(x_atted)
-#
-#         return x_atted
 
 
 class AttFlat(nn.Module):
-    def __init__(self, __C):
+    def __init__(self, hidden_size, flat_glimpses, dropout_rate):
         super(AttFlat, self).__init__()
-        self.__C = __C
+        self.hidden_size = hidden_size
+        self.flat_glimpses = flat_glimpses
+        self.dropout_rate = dropout_rate
 
         self.mlp = MLP(
-            in_size=__C.HIDDEN_SIZE,
-            mid_size=__C.HIDDEN_SIZE//2,
-            out_size=__C.FLAT_GLIMPSES,
-            dropout_r=__C.DROPOUT_R,
+            in_size=hidden_size,
+            mid_size=hidden_size//2,
+            out_size=flat_glimpses,
+            dropout_r=dropout_rate,
             use_relu=True
         )
 
         self.linear_merge = nn.Linear(
-            __C.HIDDEN_SIZE ,
-            __C.HIDDEN_SIZE
+            hidden_size ,
+            hidden_size
         )
 
     def forward(self, x, x_mask=None):
-        b,l,c=x.size()
+        b, l, c = x.size()
         att = self.mlp(x).view(b,l,-1)
-        x=x.view(b,l,self.__C.FLAT_GLIMPSES,-1)
+        x=x.view(b, l, self.flat_glimpses, -1)
         if x_mask is not None:
             att = att.masked_fill(
                 x_mask.squeeze(1).squeeze(1).unsqueeze(2),
@@ -137,7 +102,7 @@ class AttFlat(nn.Module):
         att = F.softmax(att, dim=1)
 
         att_list = []
-        for i in range(self.__C.FLAT_GLIMPSES):
+        for i in range(self.flat_glimpses):
             att_list.append(
                 torch.sum(att[:, :, i: i + 1] * x[:,:,i,:], dim=1)
             )
@@ -146,49 +111,53 @@ class AttFlat(nn.Module):
         x_atted = self.linear_merge(x_atted)
 
         return x_atted
+
 # ------------------------------
 # ---- Multi-Head Attention ----
 # ------------------------------
 
 class MHAtt(nn.Module):
-    def __init__(self, __C):
+    def __init__(self, hidden_size, num_heads, dropout_rate):
         super(MHAtt, self).__init__()
-        self.__C = __C
+        self.num_heads = num_heads
+        self.hidden_size = hidden_size
 
-        self.linear_v = nn.Linear(__C.HIDDEN_SIZE, __C.HIDDEN_SIZE)
-        self.linear_k = nn.Linear(__C.HIDDEN_SIZE, __C.HIDDEN_SIZE)
-        self.linear_q = nn.Linear(__C.HIDDEN_SIZE, __C.HIDDEN_SIZE)
-        self.linear_merge = nn.Linear(__C.HIDDEN_SIZE, __C.HIDDEN_SIZE)
+        self.linear_v = nn.Linear(hidden_size, hidden_size)
+        self.linear_k = nn.Linear(hidden_size, hidden_size)
+        self.linear_q = nn.Linear(hidden_size, hidden_size)
+        self.linear_merge = nn.Linear(hidden_size, hidden_size)
 
-        self.dropout = nn.Dropout(__C.DROPOUT_R)
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, v, k, q, mask):
         n_batches = q.size(0)
+        
         v = self.linear_v(v).view(
             n_batches,
             -1,
-            self.__C.MULTI_HEAD,
-            int(self.__C.HIDDEN_SIZE / self.__C.MULTI_HEAD)
+            self.num_heads,
+            int(self.hidden_size / self.num_heads)
         ).transpose(1, 2)
+        
         k = self.linear_k(k).view(
             n_batches,
             -1,
-            self.__C.MULTI_HEAD,
-            int(self.__C.HIDDEN_SIZE / self.__C.MULTI_HEAD)
+            self.num_heads,
+            int(self.hidden_size / self.num_heads)
         ).transpose(1, 2)
 
         q = self.linear_q(q).view(
             n_batches,
             -1,
-            self.__C.MULTI_HEAD,
-            int(self.__C.HIDDEN_SIZE / self.__C.MULTI_HEAD)
+            self.num_heads,
+            int(self.hidden_size / self.num_heads)
         ).transpose(1, 2)
 
         atted = self.att(v, k, q, mask)
         atted = atted.transpose(1, 2).contiguous().view(
             n_batches,
             -1,
-            self.__C.HIDDEN_SIZE
+            self.hidden_size
         )
 
         atted = self.linear_merge(atted)
@@ -217,14 +186,14 @@ class MHAtt(nn.Module):
 # ---------------------------
 
 class FFN(nn.Module):
-    def __init__(self, __C):
+    def __init__(self, hidden_size, ffn_size, dropout_rate):
         super(FFN, self).__init__()
 
         self.mlp = MLP(
-            in_size=__C.HIDDEN_SIZE,
-            mid_size=__C.FF_SIZE,
-            out_size=__C.HIDDEN_SIZE,
-            dropout_r=__C.DROPOUT_R,
+            in_size=hidden_size,
+            mid_size=ffn_size,
+            out_size=hidden_size,
+            dropout_r=dropout_rate,
             use_relu=True
         )
 
@@ -237,19 +206,21 @@ class FFN(nn.Module):
 # ------------------------
 
 class SA(nn.Module):
-    def __init__(self, __C):
+    def __init__(self, hidden_size, num_heads, ffn_size, dropout_rate):
         super(SA, self).__init__()
 
-        self.mhatt = MHAtt(__C)
-        self.ffn = FFN(__C)
+        self.mhatt = MHAtt(hidden_size, num_heads, dropout_rate)
+        self.ffn = FFN(hidden_size, ffn_size, dropout_rate)
 
-        self.dropout1 = nn.Dropout(__C.DROPOUT_R)
-        self.norm1 = LayerNorm(__C.HIDDEN_SIZE)
+        self.dropout1 = nn.Dropout(dropout_rate)
+        self.norm1 = LayerNorm(hidden_size)
 
-        self.dropout2 = nn.Dropout(__C.DROPOUT_R)
-        self.norm2 = LayerNorm(__C.HIDDEN_SIZE)
+        self.dropout2 = nn.Dropout(dropout_rate)
+        self.norm2 = LayerNorm(hidden_size)
+    
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos
+    
     def forward(self, y, y_mask,pos=None):
         q=k= self.with_pos_embed(y, pos)
         y = self.norm1(y + self.dropout1(
@@ -268,23 +239,25 @@ class SA(nn.Module):
 # -------------------------------
 
 class SGA(nn.Module):
-    def __init__(self, __C):
+    def __init__(self, hidden_size, num_heads, ffn_size, dropout_rate):
         super(SGA, self).__init__()
 
-        self.mhatt1 = MHAtt(__C)
-        self.mhatt2 = MHAtt(__C)
-        self.ffn = FFN(__C)
+        self.mhatt1 = MHAtt(hidden_size, num_heads, dropout_rate)
+        self.mhatt2 = MHAtt(hidden_size, num_heads, dropout_rate)
+        self.ffn = FFN(hidden_size, ffn_size, dropout_rate)
 
-        self.dropout1 = nn.Dropout(__C.DROPOUT_R)
-        self.norm1 = LayerNorm(__C.HIDDEN_SIZE)
+        self.dropout1 = nn.Dropout(dropout_rate)
+        self.norm1 = LayerNorm(hidden_size)
 
-        self.dropout2 = nn.Dropout(__C.DROPOUT_R)
-        self.norm2 = LayerNorm(__C.HIDDEN_SIZE)
+        self.dropout2 = nn.Dropout(dropout_rate)
+        self.norm2 = LayerNorm(hidden_size)
 
-        self.dropout3 = nn.Dropout(__C.DROPOUT_R)
-        self.norm3 = LayerNorm(__C.HIDDEN_SIZE)
+        self.dropout3 = nn.Dropout(dropout_rate)
+        self.norm3 = LayerNorm(hidden_size)
+    
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos
+    
     def forward(self, x, y, x_mask, y_mask,q_pos=None,k_pos=None):
         q=k= self.with_pos_embed(x, q_pos)
         x = self.norm1(x + self.dropout1(

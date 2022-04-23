@@ -150,6 +150,7 @@ def main_worker(gpu,__C):
     val_set=RefCOCODataSet(__C,split='val')
     val_loader=loader(__C,val_set,gpu,shuffle=False)
     loaders.append(val_loader)
+    
     if __C.DATASET=='refcoco' or __C.DATASET=='refcoco+':
         testA=RefCOCODataSet(__C,split='testA')
         testA_loader=loader(__C,testA,gpu,shuffle=False)
@@ -158,6 +159,7 @@ def main_worker(gpu,__C):
         testB_loader=loader(__C,testB,gpu,shuffle=False)
         prefixs.extend(['testA','testB'])
         loaders.extend([testA_loader,testB_loader])
+    
     else:# __C.DATASET=='refcocog':
         test=RefCOCODataSet(__C,split='test')
         test_loader=loader(__C,test,gpu,shuffle=False)

@@ -24,7 +24,15 @@ from simrec.layers.fusion_layer import MultiScaleFusion,SimpleFusion,GaranAttent
 torch.backends.cudnn.enabled=False
 
 class SimREC(nn.Module):
-    def __init__(self, __C, pretrained_emb, token_size):
+    def __init__(
+        self, 
+        visual_backbones: nn.Module, 
+        language_encoders: nn.Module, 
+        head: nn.Module, 
+        hidden_size: int, 
+        pretrained_emb: int, 
+        token_size: int
+    ):
         super(SimREC, self).__init__()
         self.visual_encoder=build_visual_encoder(__C)
         self.lang_encoder=build_language_encoder(__C,pretrained_emb,token_size)
