@@ -19,7 +19,13 @@ from simrec.layers.blocks import vgg_conv, darknet_conv
 from simrec.utils.parse_darknet_weights import parse_yolo_weights
 
 class VGG16(nn.Module):
-    def __init__(self,__C, multi_scale_outputs=False):
+    def __init__(
+        self,
+        pretrained_weight_path=None,
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=True,
+    ):
         super().__init__()
         self.module_list = nn.ModuleList()
         self.module_list.append(vgg_conv(in_ch=3, out_ch=64, ksize=3, stride=1))
@@ -40,6 +46,7 @@ class VGG16(nn.Module):
         self.module_list.append(vgg_conv(in_ch=512, out_ch=512, ksize=3, stride=1))
         self.module_list.append(vgg_conv(in_ch=512, out_ch=512, ksize=3, stride=1))
         self.module_list.append(nn.MaxPool2d(2,2))
+        
         # YOLOv3
         self.module_list.append(darknet_conv(in_ch=512, out_ch=512, ksize=1, stride=1))
         self.module_list.append(darknet_conv(in_ch=512, out_ch=1024, ksize=3, stride=1))
@@ -49,8 +56,20 @@ class VGG16(nn.Module):
         self.module_list.append(darknet_conv(in_ch=512, out_ch=1024, ksize=3, stride=1))
         self.multi_scale_outputs=multi_scale_outputs
         
-        if __C.VIS_PRETRAIN:
-            parse_yolo_weights(self,__C.PRETRAIN_WEIGHT)
+        if pretrained:
+            parse_yolo_weights(pretrained_weight_path)
+
+        if freeze_backbone:
+            self.frozen(self.module_list[:-2])
+        
+    def frozen(self,module):
+            if getattr(module,'module',False):
+                for child in module.module():
+                    for param in child.parameters():
+                        param.requires_grad = False
+            else:
+                for param in module.parameters():
+                    param.requires_grad = False
     
     def forward(self, x):
         outputs=[]

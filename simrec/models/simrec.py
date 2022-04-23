@@ -31,12 +31,12 @@ class SimREC(nn.Module):
         head: nn.Module, 
         hidden_size: int, 
         pretrained_emb: int, 
-        token_size: int
+        token_size: int,
     ):
         super(SimREC, self).__init__()
-        self.visual_encoder=build_visual_encoder(__C)
-        self.lang_encoder=build_language_encoder(__C,pretrained_emb,token_size)
-        self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, __C.HIDDEN_SIZE), scaled=True)
+        self.visual_encoder=visual_backbones
+        self.lang_encoder=language_encoders
+        self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, hidden_size), scaled=True)
         self.fusion_manner=nn.ModuleList(
             [
                 SimpleFusion(v_planes=256, out_planes=512, q_planes=512),
@@ -45,16 +45,16 @@ class SimREC(nn.Module):
             ]
         )
         self.attention_manner=GaranAttention(512,512)
-        self.head=REChead(__C)
+        self.head=head
         total = sum([param.nelement() for param in self.lang_encoder.parameters()])
         print('  + Number of lang enc params: %.2fM' % (total / 1e6))  # 每一百万为一个单位
-        if __C.VIS_FREEZE:
-            if __C.VIS_ENC=='vgg' or __C.VIS_ENC=='darknet':
-                self.frozen(self.visual_encoder.module_list[:-2])
-            elif __C.VIS_ENC=='cspdarknet':
-                self.frozen(self.visual_encoder.model[:-2])
-            else:
-                self.frozen(self.visual_encoder)
+        # if __C.VIS_FREEZE:
+        #     if __C.VIS_ENC=='vgg' or __C.VIS_ENC=='darknet':
+        #         self.frozen(self.visual_encoder.module_list[:-2])
+        #     elif __C.VIS_ENC=='cspdarknet':
+        #         self.frozen(self.visual_encoder.model[:-2])
+        #     else:
+        #         self.frozen(self.visual_encoder)
     
     def frozen(self,module):
         if getattr(module,'module',False):

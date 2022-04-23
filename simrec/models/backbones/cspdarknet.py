@@ -19,7 +19,13 @@ import torch.nn as nn
 from simrec.layers.blocks import ConvBnAct, C3Block
 
 class CspDarkNet(nn.Module):
-    def __init__(self, __C, multi_scale_outputs=False):
+    def __init__(
+        self, 
+        pretrained_weight_path=None,
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=True,
+    ):
         super().__init__()
         self.model = nn.Sequential(
             ConvBnAct(c1=3, c2=64, k=6,s=2,p=2),
@@ -45,10 +51,14 @@ class CspDarkNet(nn.Module):
         )
         
         self.multi_scale_outputs=multi_scale_outputs
-        if __C.VIS_PRETRAIN:
-            self.weight_dict = torch.load(__C.PRETRAIN_WEIGHT)
+        
+        if pretrained:
+            self.weight_dict = torch.load(pretrained_weight_path)
             self.load_state_dict(self.weight_dict, strict=False)
-    
+
+        if freeze_backbone:
+            self.frozen(self.model[:-2])
+
     def frozen(self,module):
             if getattr(module,'module',False):
                 for child in module.module():
