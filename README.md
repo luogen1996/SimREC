@@ -16,12 +16,27 @@ SimREC is a simple and lightweight codebase for the research of referring expres
 - (2022/4/20) A novel point-based prediction paradigm [SeqTR](https://arxiv.org/abs/2203.16265) is released in [here](https://github.com/sean-zhuh/SeqTR), which will be updated in this repository.
 - (2022/4/20) Implement MCN for SimREC project.
 - (2022/4/19) Release our SimREC project.
+
 ## Installation
+- Clone this repo
+```bash
+git clone https://github.com/luogen1996/SimREC.git
+cd SimREC
+```
+- Create a conda virtual environment and activate it
+```bash
+conda create -n simrec python=3.7 -y
+conda activate simrec
+```
+- Install Pytorch following the [official installation instructions](https://pytorch.org/get-started/locally/)
+- Install mmcv following the [installation guide](https://github.com/open-mmlab/mmcv#installation)
+- Install [Spacy](https://spacy.io/) and initialize the [GloVe](https://github-releases.githubusercontent.com/84940268/9f4d5680-4fed-11e9-9dd2-988cce16be55?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210815%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210815T072922Z&X-Amz-Expires=300&X-Amz-Signature=1bd1bd4fc52057d8ac9eec7720e3dd333e63c234abead471c2df720fb8f04597&X-Amz-SignedHeaders=host&actor_id=48727989&key_id=0&repo_id=84940268&response-content-disposition=attachment%3B%20filename%3Den_vectors_web_lg-2.1.0.tar.gz&response-content-type=application%2Foctet-stream) and install other requirements as follows:
 ```
 pip install -r requirements.txt
 wget https://github.com/explosion/spacy-models/releases/download/en_vectors_web_lg-2.1.0/en_vectors_web_lg-2.1.0.tar.gz -O en_vectors_web_lg-2.1.0.tar.gz
 pip install en_vectors_web_lg-2.1.0.tar.gz
 ```
+
 ## Data preparation
 
 -  Follow the instructions of  [DATA_PRE_README.md](./DATA_PRE_README.md) to generate training data and testing data.
