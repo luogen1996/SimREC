@@ -42,4 +42,5 @@ train = dict(
     grad_norm_clip = 0.15,
     use_ema = True,
     amp = False
+    seed = 123456,
 )

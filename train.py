@@ -17,6 +17,7 @@ from simrec.datasets.dataloader import build_loader
 from simrec.utils.logging import *
 from simrec.utils.ckpt import *
 from simrec.utils.distributed import *
+from simrec.config import LazyConfig
 
 
 from test import validate
@@ -250,53 +251,53 @@ def main_worker(gpu, cfg):
             ema = EMA(net, 0.9997)
         train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
         box_ap,mask_ap=validate(__C,net,val_loader,writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
-        if main_process(__C,gpu):
+        if main_process(cfg, gpu):
             if ema is not None:
                 ema.apply_shadow()
             torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
                         'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                       os.path.join(__C.LOG_PATH, str(__C.VERSION),'ckpt', 'last.pth'))
+                       os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'last.pth'))
             if box_ap>best_det_acc:
                 best_det_acc=box_ap
                 torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                           os.path.join(__C.LOG_PATH, str(__C.VERSION),'ckpt', 'det_best.pth'))
+                           os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'det_best.pth'))
             if mask_ap > best_seg_acc:
                 best_seg_acc=mask_ap
                 torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                           os.path.join(__C.LOG_PATH, str(__C.VERSION),'ckpt', 'seg_best.pth'))
+                           os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'seg_best.pth'))
             if ema is not None:
                 ema.restore()
-    if __C.MULTIPROCESSING_DISTRIBUTED:
+
+    if cfg.train.distributed.enabled:
         cleanup_distributed()
 
 
 def main():
     parser = argparse.ArgumentParser(description="SimREC")
-    parser.add_argument('--config', type=str, required=True, default='./config/refcoco.yaml')
+    parser.add_argument('--config', type=str, required=True, default='./config/simrec_refcoco_scratch.py')
     args=parser.parse_args()
-    assert args.config is not None
-    __C = config.load_cfg_from_cfg_file(args.config)
+    cfg = LazyConfig.load(args.config)
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in __C.GPU)
-    setup_unique_version(__C)
-    seed_everything(__C.SEED)
-    N_GPU=len(__C.GPU)
+    setup_unique_version(cfg)
+    seed_everything(cfg.train.seed)
+    N_GPU=len(cfg.train.gpus)
 
-    if not os.path.exists(os.path.join(__C.LOG_PATH,str(__C.VERSION))):
-        os.makedirs(os.path.join(__C.LOG_PATH,str(__C.VERSION),'ckpt'),exist_ok=True)
+    if not os.path.exists(os.path.join(cfg.train.log_path,str(cfg.train.version))):
+        os.makedirs(os.path.join(cfg.train.log_path,str(cfg.train.version),'ckpt'),exist_ok=True)
 
     if N_GPU == 1:
-        __C.MULTIPROCESSING_DISTRIBUTED = False
+        cfg.train.distributed.enabled = False
     else:
         # turn on single or multi node multi gpus training
-        __C.MULTIPROCESSING_DISTRIBUTED = True
-        __C.WORLD_SIZE *= N_GPU
-        __C.DIST_URL = f"tcp://127.0.0.1:{find_free_port()}"
-    if __C.MULTIPROCESSING_DISTRIBUTED:
+        cfg.train.distributed.enabled = True
+        cfg.train.distributed.world_size *= N_GPU
+        cfg.train.distributed.dist_url = f"tcp://127.0.0.1:{find_free_port()}"
+    if cfg.train.distributed.enabled:
         mp.spawn(main_worker, args=(__C,), nprocs=N_GPU, join=True)
     else:
-        main_worker(__C.GPU,__C)
+        main_worker(cfg.train.gpus, cfg)
 
 
 if __name__ == '__main__':

@@ -171,14 +171,11 @@ def split_weights(net):
 
     return [dict(params=filter(lambda p: p.requires_grad, decay)), dict(params=filter(lambda p: p.requires_grad, no_decay), weight_decay=0)]
 
-def setup_unique_version(__C):
-    # if __C.RESUME:
-    #     __C.VERSION = __C.RESUME_VERSION
-    #     return
+def setup_unique_version(cfg):
     while True:
         version = random.randint(0, 99999)
-        if not (os.path.exists(os.path.join(__C.LOG_PATH ,str(version)))):
-            __C.VERSION = str(version)
+        if not (os.path.exists(os.path.join(cfg.train.log_path ,str(version)))):
+            cfg.train.version = str(version)
             break
 
 def find_free_port():
