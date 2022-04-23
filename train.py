@@ -20,7 +20,7 @@ from simrec.utils.distributed import *
 from simrec.config import LazyConfig
 
 
-from test import validate
+# from test import validate
 
 
 def train_one_epoch(cfg,
@@ -189,7 +189,8 @@ def main_worker(gpu, cfg):
 
     cfg.train.scheduler.epochs = cfg.train.epochs
     cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
-    scheduler = build_lr_scheduler(cfg, optimizer)
+    cfg.train.scheduler.optimizer = optimizer
+    scheduler = instantiate(cfg.train.scheduler)
 
     start_epoch = 0
 
@@ -244,13 +245,15 @@ def main_worker(gpu, cfg):
     else:
         writer = None
 
-    save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if __C.LOG_IMAGE else None
+    save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if cfg.train.log_image else None
 
     for ith_epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.use_ema and ema is None:
             ema = EMA(net, 0.9997)
         train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
-        box_ap,mask_ap=validate(__C,net,val_loader,writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
+        # box_ap,mask_ap=validate(__C,net,val_loader,writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
+        box_ap = 0
+        mask_ap = 0
         if main_process(cfg, gpu):
             if ema is not None:
                 ema.apply_shadow()
@@ -279,7 +282,7 @@ def main():
     parser.add_argument('--config', type=str, required=True, default='./config/simrec_refcoco_scratch.py')
     args=parser.parse_args()
     cfg = LazyConfig.load(args.config)
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in __C.GPU)
+    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in cfg.train.gpus)
     setup_unique_version(cfg)
     seed_everything(cfg.train.seed)
     N_GPU=len(cfg.train.gpus)

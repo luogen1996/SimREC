@@ -34,8 +34,8 @@ model = LazyCall(SimREC)(
     fusion_manner=LazyCall(nn.ModuleList)(
         modules = [
             LazyCall(SimpleFusion)(v_planes=256, out_planes=512, q_planes=512),
-            LazyCall(SimpleFusion)(v_planes=256, out_planes=512, q_planes=512),
-            LazyCall(SimpleFusion)(v_planes=256, out_planes=512, q_planes=512),
+            LazyCall(SimpleFusion)(v_planes=512, out_planes=512, q_planes=512),
+            LazyCall(SimpleFusion)(v_planes=1024, out_planes=512, q_planes=512),
         ]
     ),
     attention_manner=LazyCall(GaranAttention)(
