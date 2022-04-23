@@ -15,13 +15,18 @@
 
 import torch.nn as nn
 
-from torchvision.models.resnet import resnet34,resnet101,resnet18
+from torchvision.models.resnet import resnet34, resnet101, resnet18
 
 class ResNet18(nn.Module):
-    def __init__(self,__C, multi_scale_outputs=False):
+    def __init__(
+        self,
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=True,
+    ):
         super().__init__()
         self.multi_scale_outputs=multi_scale_outputs
-        self.resnet=resnet18(pretrained=__C.VIS_PRETRAIN)
+        self.resnet=resnet18(pretrained=pretrained)
     
     def forward(self, x):
         x=self.resnet.conv1(x)
@@ -37,10 +42,15 @@ class ResNet18(nn.Module):
         return x2
 
 class ResNet34(nn.Module):
-    def __init__(self,__C, multi_scale_outputs=False):
+    def __init__(
+        self,
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=True,
+    ):
         super().__init__()
         self.multi_scale_outputs=multi_scale_outputs
-        self.resnet=resnet34(pretrained=__C.VIS_PRETRAIN)
+        self.resnet=resnet34(pretrained=pretrained)
     
     def forward(self, x):
         x=self.resnet.conv1(x)
@@ -56,10 +66,15 @@ class ResNet34(nn.Module):
         return x2
 
 class ResNet101(nn.Module):
-    def __init__(self,__C, multi_scale_outputs=False):
+    def __init__(
+        self,
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=True,
+    ):
         super().__init__()
         self.multi_scale_outputs=multi_scale_outputs
-        self.resnet=resnet101(pretrained=__C.VIS_PRETRAIN)
+        self.resnet=resnet101(pretrained=pretrained)
     
     def forward(self, x):
         x=self.resnet.conv1(x)
