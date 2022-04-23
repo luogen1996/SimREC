@@ -3,7 +3,6 @@ import time
 from importlib import import_module
 from tensorboardX import SummaryWriter
 
-import torch.optim as Optim
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -52,7 +51,7 @@ def train_one_epoch(cfg,
     for ith_batch, data in enumerate(loader):
         data_time.update(time.time() - end)
 
-        ref_iter,image_iter,mask_iter,box_iter,gt_box_iter,mask_id,info_iter= data
+        ref_iter,image_iter,mask_iter,box_iter, gt_box_iter, mask_id, info_iter= data
         ref_iter = ref_iter.cuda(non_blocking=True)
         image_iter = image_iter.cuda(non_blocking=True)
         mask_iter = mask_iter.cuda(non_blocking=True)
