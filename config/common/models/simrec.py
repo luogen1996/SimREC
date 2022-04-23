@@ -22,9 +22,8 @@ model = LazyCall(SimREC)(
         flat_glimpses=1,
         word_embed_size=300,
         dropout_rate=0.,
-        # Note that pretrained_emb and token_size will be passed in train.py
-        # pretrained_emb = None,
-        # token_size = None,
+        # language_encoder.pretrained_emb and language.token_size is meant to be set
+        # before instantiating
         freeze_embedding=True,
         use_glove=True,
     ),
