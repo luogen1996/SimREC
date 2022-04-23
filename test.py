@@ -46,9 +46,11 @@ def validate(cfg,
     mask_aps={}
     for item in np.arange(0.5, 1, 0.05):
         mask_aps[item]=[]
+    
     meters = [batch_time, data_time, losses, box_ap, mask_ap,inconsistency_error]
     meters_dict = {meter.name: meter for meter in meters}
     progress = ProgressMeter(cfg.train.version, cfg.train.epochs, len(loader), meters, prefix=prefix+': ')
+    
     with torch.no_grad():
         end = time.time()
         for ith_batch, data in enumerate(loader):

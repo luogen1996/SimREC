@@ -1,22 +1,25 @@
-import argparse
+import os
 import time
+import argparse
+import numpy as np
 from importlib import import_module
 from tensorboardX import SummaryWriter
 
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.nn.parallel import DataParallel as DP
 from torch.nn.parallel import DistributedDataParallel as DDP
-from simrec.config.instantiate import instantiate
-from simrec.scheduler.build import build_lr_scheduler
 
-from simrec.utils.utils import *
-from simrec.utils.utils import EMA
-from simrec.utils import config
+from simrec.config import LazyConfig, instantiate
 from simrec.datasets.dataloader import build_loader
-from simrec.utils.logging import *
-from simrec.utils.ckpt import *
-from simrec.utils.distributed import *
-from simrec.config import LazyConfig
+from simrec.scheduler.build import build_lr_scheduler
+from simrec.utils.metric import AverageMeter, ProgressMeter
+from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed, find_free_port
+from simrec.utils.env import seed_everything, setup_unique_version
+from simrec.utils.model_ema import EMA
 
 
 from test import validate
@@ -64,7 +67,7 @@ def train_one_epoch(cfg,
             mask_iter=F.interpolate(mask_iter,(h,w))
 
         if scalar is not None:
-            with th.cuda.amp.autocast():
+            with torch.cuda.amp.autocast():
                 loss, loss_det, loss_seg = net(image_iter,ref_iter,det_label=box_iter,seg_label=mask_iter)
         else:
             loss, loss_det, loss_seg = net(image_iter, ref_iter, det_label=box_iter,seg_label=mask_iter)
@@ -223,9 +226,9 @@ def main_worker(gpu, cfg):
 
 
     if cfg.train.amp:
-        assert th.__version__ >= '1.6.0', \
+        assert torch.__version__ >= '1.6.0', \
             "Automatic Mixed Precision training only supported in PyTorch-1.6.0 or higher"
-        scalar = th.cuda.amp.GradScaler()
+        scalar = torch.cuda.amp.GradScaler()
     else:
         scalar = None
 

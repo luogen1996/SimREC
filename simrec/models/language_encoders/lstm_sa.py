@@ -17,7 +17,13 @@ import torch
 import torch.nn as nn
 
 from simrec.layers.sa_layer import SA, AttFlat
-from simrec.utils.utils import make_mask
+
+
+def make_mask(feature):
+    return (torch.sum(
+        torch.abs(feature),
+        dim=-1
+    ) == 0).unsqueeze(1).unsqueeze(2)
 
 
 class LSTM_SA(nn.Module):
