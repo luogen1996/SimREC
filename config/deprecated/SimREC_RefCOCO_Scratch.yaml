@@ -27,7 +27,7 @@ TRAIN:
   NUM_WORKER: 8 # same as BATCH_SIZE
   LR: 0.0001
   EPOCHS: 25
-  DECAY_EPOCHS: [30, 35,37] # valuable
+  DECAY_EPOCHS: [30, 35, 37] # valuable
   LR_DECAY_R: 0.2
   PRINT_FREQ: 100
   LOG_PATH: './logs/det_base_refcoco_baseline'

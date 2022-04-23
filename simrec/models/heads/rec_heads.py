@@ -78,7 +78,7 @@ class DWConv(nn.Module):
 class REChead(nn.Module):
     def __init__(
         self,
-        __C,
+        label_smooth=0.0,
         num_classes=0,
         width=1.0,
         strides=[32,],
@@ -92,7 +92,7 @@ class REChead(nn.Module):
             depthwise (bool): whether apply depthwise conv in conv branch. Defalut value: False.
         """
         super().__init__()
-        self.__C=__C
+        self.label_smooth = label_smooth
         self.n_anchors = 1
         self.num_classes = num_classes
         self.decode_in_inference = True  # for deploy, set to False
@@ -413,13 +413,15 @@ class REChead(nn.Module):
             self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)
         ).sum() / num_fg
         loss_obj = (
-            self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets.clamp(self.__C.LABEL_SMOOTH,1.-self.__C.LABEL_SMOOTH) if self.__C.LABEL_SMOOTH>0. else obj_targets)
+            self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets.clamp(self.label_smooth,1.-self.label_smooth) if self.label_smooth > 0. else obj_targets)
         ).sum() / num_fg
+        
         # loss_cls = (
         #     self.bcewithlog_loss(
         #         cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets
         #     )
         # ).sum() / num_fg
+        
         if self.use_l1:
             loss_l1 = (
                 self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)

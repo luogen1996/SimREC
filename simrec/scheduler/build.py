@@ -13,7 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .dataloader import build_loader
-from .dataset import RefCOCODataSet
-from .transforms.mixup import Mixup
-from .transforms.randaug import RandAugment
+from simrec.config import instantiate
+
+def build_lr_scheduler(cfg, optimizer):
+    """Build learning rate scheduler, defined by ``cfg.train.scheduler``."""
+    cfg.optimizer = optimizer
+    scheduler = instantiate(cfg)
+    return scheduler

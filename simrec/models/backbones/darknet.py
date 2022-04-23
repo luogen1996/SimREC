@@ -19,7 +19,13 @@ from simrec.layers.blocks import darknet_conv, darknetblock
 from simrec.utils.parse_darknet_weights import parse_yolo_weights
 
 class DarkNet53(nn.Module):
-    def __init__(self, __C,multi_scale_outputs=False):
+    def __init__(
+        self, 
+        pretrained_weight_path, 
+        pretrained=False, 
+        multi_scale_outputs=False,
+        freeze_backbone=False,
+    ):
         super().__init__()
         self.module_list = nn.ModuleList()
         self.module_list.append(darknet_conv(in_ch=3, out_ch=32, ksize=3, stride=1))
@@ -41,9 +47,12 @@ class DarkNet53(nn.Module):
         self.module_list.append(darknet_conv(in_ch=512, out_ch=1024, ksize=3, stride=1))
         self.multi_scale_outputs=multi_scale_outputs
         
-        if __C.VIS_PRETRAIN:
-            parse_yolo_weights(self,__C.PRETRAIN_WEIGHT)
-    
+        if pretrained:
+            parse_yolo_weights(pretrained_weight_path)
+
+        if freeze_backbone:
+            self.frozen(self.module_list[:-2])
+
     def frozen(self,module):
         if getattr(module,'module',False):
             for child in module.module():

@@ -21,30 +21,54 @@ from simrec.utils.utils import make_mask
 
 
 class LSTM_SA(nn.Module):
-    def __init__(self, __C, pretrained_emb, token_size):
+    """
+    Building LSTM - SelfAttention layer
+
+    Args:
+        depth (int): the depth of self-attention layers
+        hidden_size (int): the size of the hidden states
+        num_heads (int): number of attention heads
+        ffn_size (int): size for the feed-forward nets
+        freeze_embedding (bool): freeze the weights of embedding layer or not
+    """
+
+    def __init__(
+        self, 
+        depth,
+        hidden_size,
+        num_heads,
+        ffn_size,
+        flat_glimpses,
+        dropout_rate,
+        word_embed_size,
+        pretrained_emb, 
+        token_size,
+        freeze_embedding=True,
+        use_glove=True,
+    ):
         super(LSTM_SA, self).__init__()
         self.embedding = nn.Embedding(
             num_embeddings=token_size,
-            embedding_dim=__C.WORD_EMBED_SIZE
+            embedding_dim=word_embed_size
         )
 
         # Loading the GloVe embedding weights
-        if __C.USE_GLOVE:
+        if use_glove:
             self.embedding.weight.data.copy_(torch.from_numpy(pretrained_emb))
 
         self.lstm = nn.GRU(
-            input_size=__C.WORD_EMBED_SIZE,
-            hidden_size=__C.HIDDEN_SIZE,
+            input_size=word_embed_size,
+            hidden_size=hidden_size,
             num_layers=1,
             batch_first=True,
-            dropout=__C.DROPOUT_R,
+            dropout=dropout_rate,
             bidirectional=False
         )
 
-        self.sa_list = nn.ModuleList([SA(__C) for _ in range(__C.N_SA)])
-        self.att_flat=AttFlat(__C)
+        self.sa_list = nn.ModuleList([SA(hidden_size, num_heads, ffn_size, dropout_rate) for _ in range(depth)])
+        self.att_flat=AttFlat(hidden_size, flat_glimpses, dropout_rate)
         
-        if __C.EMBED_FREEZE:
+        if freeze_embedding:
             self.frozen(self.embedding)
     
     def frozen(self, module):
