@@ -26,16 +26,16 @@ torch.backends.cudnn.enabled=False
 class SimREC(nn.Module):
     def __init__(
         self, 
-        visual_backbones: nn.Module, 
-        language_encoders: nn.Module,
+        visual_backbone: nn.Module, 
+        language_encoder: nn.Module,
         multi_scale_manner: nn.Module,
         fusion_manner: nn.Module,
         attention_manner: nn.Module,
         head: nn.Module, 
     ):
         super(SimREC, self).__init__()
-        self.visual_encoder=visual_backbones
-        self.lang_encoder=language_encoders
+        self.visual_encoder=visual_backbone
+        self.lang_encoder=language_encoder
         # self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, hidden_size), scaled=True)
         self.multi_scale_manner = multi_scale_manner
         # self.fusion_manner=nn.ModuleList(
@@ -63,7 +63,7 @@ class SimREC(nn.Module):
             for param in module.parameters():
                 param.requires_grad = False
     
-    def forward(self,x,y, det_label=None,seg_label=None):
+    def forward(self, x, y, det_label=None,seg_label=None):
 
         # vision and language encoding
         x=self.visual_encoder(x)
