@@ -127,7 +127,7 @@ def main_worker(gpu, cfg):
             rank=cfg.train.distributed.rank
         )
 
-    # build training and evaluation datasets
+    # build training dataset and dataloader
     cfg.dataset.split = "train"
     train_set = instantiate(cfg.dataset)
     train_loader = build_loader(
@@ -137,6 +137,8 @@ def main_worker(gpu, cfg):
         shuffle=(not cfg.train.distributed.enabled),
         drop_last=True
     )
+    
+    # build validation dataset and dataloader
     cfg.dataset.split = "val"
     val_set = instantiate(cfg.dataset)
     val_loader = build_loader(
@@ -145,30 +147,19 @@ def main_worker(gpu, cfg):
         gpu,
         shuffle=False
     )
-    # train_set=RefCOCODataSet(__C,split='train')
-    # train_loader=loader(__C,train_set,gpu,shuffle=(not __C.MULTIPROCESSING_DISTRIBUTED),drop_last=True)
-
-    # val_set=RefCOCODataSet(__C,split='val')
-    # val_loader=loader(__C,val_set,gpu,shuffle=False)
 
     # build model
     cfg.model.language_encoder.pretrained_emb = train_set.pretrained_emb
     cfg.model.language_encoder.token_size = train_set.token_size
     net = instantiate(cfg.model)
-    # net = build_model(__C, train_set.pretrained_emb, train_set.token_size)
 
     # build optimizer
-    params = filter(lambda p: p.requires_grad, net.parameters())#split_weights(net)
+    params = filter(lambda p: p.requires_grad, net.parameters())
     cfg.optim.params = params
     optimizer = instantiate(cfg.optim)
-    # std_optim = getattr(Optim, __C.OPT)
-    # eval_str = 'params, lr=%f'%__C.LR
-    # for key in __C.OPT_PARAMS:
-    #     eval_str += ' ,' + key + '=' + str(__C.OPT_PARAMS[key])
-    # optimizer=eval('std_optim' + '(' + eval_str + ')')
 
+    # model ema
     ema=None
-
 
     if cfg.train.distributed.enabled:
         torch.cuda.set_device(gpu)
@@ -189,8 +180,7 @@ def main_worker(gpu, cfg):
 
     cfg.train.scheduler.epochs = cfg.train.epochs
     cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
-    cfg.train.scheduler.optimizer = optimizer
-    scheduler = instantiate(cfg.train.scheduler)
+    scheduler = build_lr_scheduler(cfg.train.scheduler, optimizer)
 
     start_epoch = 0
 
@@ -298,7 +288,7 @@ def main():
         cfg.train.distributed.world_size *= N_GPU
         cfg.train.distributed.dist_url = f"tcp://127.0.0.1:{find_free_port()}"
     if cfg.train.distributed.enabled:
-        mp.spawn(main_worker, args=(__C,), nprocs=N_GPU, join=True)
+        mp.spawn(main_worker, args=(cfg,), nprocs=N_GPU, join=True)
     else:
         main_worker(cfg.train.gpus, cfg)
 

@@ -7,6 +7,7 @@ from simrec.datasets.dataset import RefCOCODataSet
 from simrec.datasets.transforms.randaug import RandAugment
 
 dataset = LazyCall(RefCOCODataSet)(
+    dataset_name = "refcoco",
     ann_path = {
                 'refcoco':'./data/anns/refcoco.json',
                 'refcoco+': './data/anns/refcoco+.json',
@@ -33,10 +34,13 @@ dataset = LazyCall(RefCOCODataSet)(
             },
     input_shape = [416, 416],
     flip_lr = False,
-    transforms=transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
+    transforms=LazyCall(transforms.Compose)(
+        transforms = [
+            LazyCall(transforms.ToTensor)(),
+            LazyCall(transforms.Normalize)(
+                mean=[0., 0., 0.], 
+                std=[1., 1., 1.]
+            )
         ]
     ),
     candidate_transforms = {

@@ -44,7 +44,8 @@ class RefCOCODataSet(Data.Dataset):
                  max_token_length,
                  use_glove=True, 
                  split="train", 
-        dataset="refcoco"):
+                 dataset="refcoco"
+        ):
         super(RefCOCODataSet, self).__init__()
         self.split=split
 
