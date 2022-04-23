@@ -53,8 +53,11 @@ class CollectDiffuseAttention(nn.Module):
         attn_dif= self.dropout_d(attn_dif)
         output=torch.bmm(attn_dif,attn)
         return output, attn_col_logit.squeeze(1)
+
 class GaranAttention(nn.Module):
-    ''' GaranAttention module '''
+    """
+    Garan Attention Module
+    """
 
     def __init__(self,d_q, d_v,n_head=2, dropout=0.1):
         super().__init__()
@@ -124,7 +127,9 @@ class GaranAttention(nn.Module):
 
 
 class CollectDiffuseAttentionV2(nn.Module):
-    ''' CollectDiffuseAttention '''
+    """
+    Collect Diffuse Attention Module (Version-2)
+    """
 
     def __init__(self, temperature, attn_dropout=0.1):
         super().__init__()
@@ -157,8 +162,12 @@ class CollectDiffuseAttentionV2(nn.Module):
         attn_dif= self.dropout_d(attn_dif)
         output=torch.bmm(attn_dif,attn)
         return output, attn_col_logit.squeeze(1)
+
+
 class GaranAttentionV2(nn.Module):
-    ''' GaranAttention module '''
+    """
+    Garan Attention V2
+    """
 
     def __init__(self,d_q, d_v,n_head=2, dropout=0.1):
         super().__init__()
@@ -255,7 +264,7 @@ class SimpleFusion(nn.Module):
         y=self.q_proj(y.unsqueeze(2).unsqueeze(2))
         return self.norm(x*y)
 
-#
+
 class MultiScaleFusion(nn.Module):
     def __init__(self,v_planes=[256,512,1024],hiden_planes=512,scaled=True):
         super().__init__()

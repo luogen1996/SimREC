@@ -27,34 +27,32 @@ class SimREC(nn.Module):
     def __init__(
         self, 
         visual_backbones: nn.Module, 
-        language_encoders: nn.Module, 
+        language_encoders: nn.Module,
+        multi_scale_manner: nn.Module,
+        fusion_manner: nn.Module,
+        attention_manner: nn.Module,
         head: nn.Module, 
-        hidden_size: int, 
-        pretrained_emb: int, 
-        token_size: int,
     ):
         super(SimREC, self).__init__()
         self.visual_encoder=visual_backbones
         self.lang_encoder=language_encoders
-        self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, hidden_size), scaled=True)
-        self.fusion_manner=nn.ModuleList(
-            [
-                SimpleFusion(v_planes=256, out_planes=512, q_planes=512),
-                SimpleFusion(v_planes=512, out_planes=512, q_planes=512),
-                SimpleFusion(v_planes=1024, out_planes=512, q_planes=512)
-            ]
-        )
-        self.attention_manner=GaranAttention(512,512)
+        # self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, hidden_size), scaled=True)
+        self.multi_scale_manner = multi_scale_manner
+        # self.fusion_manner=nn.ModuleList(
+        #     [
+        #         SimpleFusion(v_planes=256, out_planes=512, q_planes=512),
+        #         SimpleFusion(v_planes=512, out_planes=512, q_planes=512),
+        #         SimpleFusion(v_planes=1024, out_planes=512, q_planes=512)
+        #     ]
+        # )
+        self.fusion_manner = fusion_manner
+        # self.attention_manner=GaranAttention(512,512)
+        self.attention_manner = attention_manner
         self.head=head
+        
         total = sum([param.nelement() for param in self.lang_encoder.parameters()])
-        print('  + Number of lang enc params: %.2fM' % (total / 1e6))  # 每一百万为一个单位
-        # if __C.VIS_FREEZE:
-        #     if __C.VIS_ENC=='vgg' or __C.VIS_ENC=='darknet':
-        #         self.frozen(self.visual_encoder.module_list[:-2])
-        #     elif __C.VIS_ENC=='cspdarknet':
-        #         self.frozen(self.visual_encoder.model[:-2])
-        #     else:
-        #         self.frozen(self.visual_encoder)
+        print('  + Number of lang enc params: %.2fM' % (total / 1e6))
+
     
     def frozen(self,module):
         if getattr(module,'module',False):
@@ -67,23 +65,26 @@ class SimREC(nn.Module):
     
     def forward(self,x,y, det_label=None,seg_label=None):
 
+        # vision and language encoding
         x=self.visual_encoder(x)
-        
         y=self.lang_encoder(y)
         
+        # vision and language fusion
         for i in range(len(self.fusion_manner)):
-            x[i]=self.fusion_manner[i](x[i],y['flat_lang_feat'])
+            x[i] = self.fusion_manner[i](x[i], y['flat_lang_feat'])
         
+        # multi-scale vision features
         x=self.multi_scale_manner(x)
         
-        top_feats,_,_=self.attention_manner(y['flat_lang_feat'],x[-1])
+        # multi-scale fusion layer
+        top_feats, _, _=self.attention_manner(y['flat_lang_feat'],x[-1])
         
         bot_feats=x[0]
         
+        # output
         if self.training:
             loss,loss_det,loss_seg=self.head(top_feats,bot_feats,det_label,seg_label)
             return loss,loss_det,loss_seg
-        
         else:
             box, mask=self.head(top_feats,bot_feats)
             return box,mask
