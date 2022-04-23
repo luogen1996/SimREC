@@ -7,16 +7,17 @@ import torch.optim as Optim
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
+from simrec.config.instantiate import instantiate
+from simrec.scheduler.build import build_lr_scheduler
 
 from simrec.utils.utils import *
 from simrec.utils.utils import EMA
 from simrec.utils import config
-from simrec.datasets.dataloader import loader,RefCOCODataSet
+from simrec.datasets.dataloader import build_loader
 from simrec.utils.logging import *
 from simrec.utils.ckpt import *
 from simrec.utils.distributed import *
 
-from simrec.models.build import build_model
 
 from test import validate
 
@@ -96,50 +97,79 @@ def train_one_epoch(cfg,
         losses_seg.update(loss_seg.item(), image_iter.size(0))
         lr.update(optimizer.param_groups[0]["lr"],-1)
 
-        reduce_meters(meters_dict, rank, __C)
-        if main_process(__C,rank):
+        reduce_meters(meters_dict, rank, cfg)
+        if main_process(cfg, rank):
             global_step = epoch * batches + ith_batch
             writer.add_scalar("loss/train", losses.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_det/train", losses_det.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_seg/train", losses_seg.avg_reduce, global_step=global_step)
-            if ith_batch % __C.PRINT_FREQ == 0 or ith_batch==len(loader):
+            if ith_batch % cfg.train.print_freq == 0 or ith_batch==len(loader):
                 progress.display(epoch, ith_batch)
         # break
         batch_time.update(time.time() - end)
         end = time.time()
 
 
-def main_worker(gpu,__C):
+def main_worker(gpu, cfg):
     global best_det_acc,best_seg_acc
     best_det_acc,best_seg_acc=0.,0.
-    if __C.MULTIPROCESSING_DISTRIBUTED:
-        if __C.DIST_URL == "env://" and __C.RANK == -1:
-            __C.RANK = int(os.environ["RANK"])
-        if __C.MULTIPROCESSING_DISTRIBUTED:
-            __C.RANK = __C.RANK* len(__C.GPU) + gpu
-        dist.init_process_group(backend=dist.Backend('NCCL'), init_method=__C.DIST_URL, world_size=__C.WORLD_SIZE, rank=__C.RANK)
+    
+    if cfg.train.distributed.enabled:
+        if cfg.train.distributed.dist_url == "env://" and cfg.train.distributed.rank == -1:
+            cfg.train.distributed.rank = int(os.environ["RANK"])
+        if cfg.train.distributed.enabled:
+            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.distributed.gpus) + gpu
+        dist.init_process_group(
+            backend=dist.Backend('NCCL'), 
+            init_method=cfg.train.distributed.dist_url, 
+            world_size=cfg.train.distributed.world_size, 
+            rank=cfg.train.distributed.rank
+        )
 
-    train_set=RefCOCODataSet(__C,split='train')
-    train_loader=loader(__C,train_set,gpu,shuffle=(not __C.MULTIPROCESSING_DISTRIBUTED),drop_last=True)
+    # build training and evaluation datasets
+    cfg.dataset.split = "train"
+    train_set = instantiate(cfg.dataset)
+    train_loader = build_loader(
+        cfg, 
+        train_set, 
+        gpu, 
+        shuffle=(not cfg.train.distributed.enabled),
+        drop_last=True
+    )
+    cfg.dataset.split = "val"
+    val_set = instantiate(cfg.dataset)
+    val_loader = build_loader(
+        cfg, 
+        val_set,
+        gpu,
+        shuffle=False
+    )
+    # train_set=RefCOCODataSet(__C,split='train')
+    # train_loader=loader(__C,train_set,gpu,shuffle=(not __C.MULTIPROCESSING_DISTRIBUTED),drop_last=True)
 
-    val_set=RefCOCODataSet(__C,split='val')
-    val_loader=loader(__C,val_set,gpu,shuffle=False)
+    # val_set=RefCOCODataSet(__C,split='val')
+    # val_loader=loader(__C,val_set,gpu,shuffle=False)
 
-    net = build_model(__C, train_set.pretrained_emb, train_set.token_size)
+    # build model
+    cfg.model.language_encoder.pretrained_emb = train_set.pretrained_emb
+    cfg.model.language_encoder.token_size = train_set.token_size
+    net = instantiate(cfg.model)
+    # net = build_model(__C, train_set.pretrained_emb, train_set.token_size)
 
-    #optimizer
+    # build optimizer
     params = filter(lambda p: p.requires_grad, net.parameters())#split_weights(net)
-    std_optim = getattr(Optim, __C.OPT)
-
-    eval_str = 'params, lr=%f'%__C.LR
-    for key in __C.OPT_PARAMS:
-        eval_str += ' ,' + key + '=' + str(__C.OPT_PARAMS[key])
-    optimizer=eval('std_optim' + '(' + eval_str + ')')
+    cfg.optim.params = params
+    optimizer = instantiate(cfg.optim)
+    # std_optim = getattr(Optim, __C.OPT)
+    # eval_str = 'params, lr=%f'%__C.LR
+    # for key in __C.OPT_PARAMS:
+    #     eval_str += ' ,' + key + '=' + str(__C.OPT_PARAMS[key])
+    # optimizer=eval('std_optim' + '(' + eval_str + ')')
 
     ema=None
 
 
-    if __C.MULTIPROCESSING_DISTRIBUTED:
+    if cfg.train.distributed.enabled:
         torch.cuda.set_device(gpu)
         net = DDP(net.cuda(), device_ids=[gpu],find_unused_parameters=True)
     elif len(gpu)==1:
@@ -148,20 +178,26 @@ def main_worker(gpu,__C):
         net = DP(net.cuda())
 
 
-    if main_process(__C, gpu):
-        print(__C)
+    if main_process(cfg, gpu):
+        print(cfg)
         print(net)
         total = sum([param.nelement() for param in net.parameters()])
-        print('  + Number of all params: %.2fM' % (total / 1e6))  # 每一百万为一个单位
+        print('  + Number of all params: %.2fM' % (total / 1e6))
         total = sum([param.nelement() for param in net.parameters() if param.requires_grad])
-        print('  + Number of trainable params: %.2fM' % (total / 1e6))  # 每一百万为一个单位
+        print('  + Number of trainable params: %.2fM' % (total / 1e6))
 
-    scheduler = get_lr_scheduler(__C,optimizer,len(train_loader))
+    cfg.train.scheduler.epochs = cfg.train.epochs
+    cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
+    scheduler = build_lr_scheduler(cfg, optimizer)
 
     start_epoch = 0
 
-    if os.path.isfile(__C.RESUME_PATH):
-        checkpoint = torch.load(__C.RESUME_PATH,map_location=lambda storage, loc: storage.cuda() )
+    if os.path.isfile(cfg.train.resume_path):
+        checkpoint = torch.load(
+            cfg.train.resume_path, 
+            map_location=lambda storage, 
+            loc: storage.cuda()
+        )
         new_dict = {}
         for k in checkpoint['state_dict']:
             if 'module.' in k:
@@ -174,12 +210,12 @@ def main_worker(gpu,__C):
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
-        if main_process(__C,gpu):
-            print("==> loaded checkpoint from {}\n".format(__C.RESUME_PATH) +
+        if main_process(cfg, gpu):
+            print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
-    if os.path.isfile(__C.VL_PRETRAIN_WEIGHT):
-        checkpoint = torch.load(__C.VL_PRETRAIN_WEIGHT,map_location=lambda storage, loc: storage.cuda() )
+    if os.path.isfile(cfg.train.vl_pretrain_weight):
+        checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda() )
         new_dict = {}
         for k in checkpoint['state_dict']:
             if 'module.' in k:
@@ -189,30 +225,30 @@ def main_worker(gpu,__C):
             new_dict=checkpoint['state_dict']
         net.load_state_dict(new_dict,strict=False)
         start_epoch = 0
-        if main_process(__C,gpu):
-            print("==> loaded checkpoint from {}\n".format(__C.VL_PRETRAIN_WEIGHT) +
-                  "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
+        if main_process(cfg, gpu):
+            print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
+                  "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
 
 
-    if __C.AMP:
+    if cfg.train.amp:
         assert th.__version__ >= '1.6.0', \
             "Automatic Mixed Precision training only supported in PyTorch-1.6.0 or higher"
         scalar = th.cuda.amp.GradScaler()
     else:
         scalar = None
 
-    if main_process(__C,gpu):
-        writer = SummaryWriter(log_dir=os.path.join(__C.LOG_PATH,str(__C.VERSION)))
+    if main_process(cfg, gpu):
+        writer = SummaryWriter(log_dir=os.path.join(cfg.train.log_path, str(cfg.train.version)))
     else:
         writer = None
 
-    save_ids=np.random.randint(1, len(val_loader) * __C.BATCH_SIZE, 100) if __C.LOG_IMAGE else None
+    save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if __C.LOG_IMAGE else None
 
-    for ith_epoch in range(start_epoch, __C.EPOCHS):
-        if __C.USE_EMA and ema is None:
+    for ith_epoch in range(start_epoch, cfg.train.epochs):
+        if cfg.train.use_ema and ema is None:
             ema = EMA(net, 0.9997)
-        train_one_epoch(__C,net,optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
+        train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
         box_ap,mask_ap=validate(__C,net,val_loader,writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
         if main_process(__C,gpu):
             if ema is not None:
