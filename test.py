@@ -1,9 +1,7 @@
 import argparse
 import time
 from tensorboardX import SummaryWriter
-from importlib import import_module
 
-import torch.optim as Optim
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -11,7 +9,6 @@ from simrec.config import instantiate, LazyConfig
 from simrec.utils.ckpt import *
 from simrec.utils.logging import *
 from simrec.utils.distributed import *
-from simrec.utils import config
 from simrec.datasets.dataloader import build_loader
 from simrec.utils.utils import *
 
@@ -99,7 +96,7 @@ def validate(cfg,
                 # mask_pred = np.argmax(Q, axis=0).reshape((416, 416)).astype(np.float32)
 
 
-                mask_gt=np.load(os.path.join(cfg.dataset.mask_path[cfg.dataset.dataset_name],'%d.npy'%mask_id[i]))
+                mask_gt=np.load(os.path.join(cfg.dataset.mask_path[cfg.dataset.dataset],'%d.npy'%mask_id[i]))
                 mask_pred=mask_processing(mask_pred,info_iter[i])
 
                 single_seg_iou,single_seg_ap=mask_iou(mask_gt,mask_pred)
@@ -170,7 +167,7 @@ def main_worker(gpu, cfg):
     )
     loaders.append(val_loader)
     
-    if cfg.dataset.dataset_name == 'refcoco' or cfg.dataset.dataset_name == 'refcoco+':
+    if cfg.dataset.dataset == 'refcoco' or cfg.dataset.dataset == 'refcoco+':
         cfg.dataset.split = "testA"
         testA_dataset = instantiate(cfg.dataset)
         testA_loader = build_loader(cfg, testA_dataset, gpu, shuffle=False)

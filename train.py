@@ -20,7 +20,7 @@ from simrec.utils.distributed import *
 from simrec.config import LazyConfig
 
 
-# from test import validate
+from test import validate
 
 
 def train_one_epoch(cfg,
@@ -240,10 +240,9 @@ def main_worker(gpu, cfg):
     for ith_epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.use_ema and ema is None:
             ema = EMA(net, 0.9997)
-        train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
-        # box_ap,mask_ap=validate(__C,net,val_loader,writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
-        box_ap = 0
-        mask_ap = 0
+        # train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
+        box_ap,mask_ap=validate(cfg, net,val_loader, writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
+
         if main_process(cfg, gpu):
             if ema is not None:
                 ema.apply_shadow()

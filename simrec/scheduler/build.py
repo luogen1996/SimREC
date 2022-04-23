@@ -18,5 +18,5 @@ from simrec.config import instantiate
 def build_lr_scheduler(cfg, optimizer):
     """Build learning rate scheduler, defined by ``cfg.train.scheduler``."""
     cfg.optimizer = optimizer
-    scheduler = instantiate(cfg.train.scheduler)
+    scheduler = instantiate(cfg)
     return scheduler

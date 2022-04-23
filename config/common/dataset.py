@@ -7,7 +7,7 @@ from simrec.datasets.dataset import RefCOCODataSet
 from simrec.datasets.transforms.randaug import RandAugment
 
 dataset = LazyCall(RefCOCODataSet)(
-    dataset_name = "refcoco",
+    dataset = "refcoco",
     ann_path = {
                 'refcoco':'./data/anns/refcoco.json',
                 'refcoco+': './data/anns/refcoco+.json',
