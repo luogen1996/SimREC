@@ -1,22 +1,21 @@
 import os
 import time
+import datetime
 import argparse
 import numpy as np
-from importlib import import_module
 from tensorboardX import SummaryWriter
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-from simrec.config import LazyConfig, instantiate, try_get_key
+from simrec.config import LazyConfig, instantiate
 from simrec.datasets.dataloader import build_loader
 from simrec.scheduler.build import build_lr_scheduler
 from simrec.utils.metric import AverageMeter, ProgressMeter
-from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed, find_free_port, get_rank
+from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed
 from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
@@ -25,91 +24,98 @@ from simrec.utils.logger import create_logger
 from test import validate
 
 
-def train_one_epoch(cfg,
-                    net,
-                    optimizer,
-                    scheduler,
-                    loader,
-                    scalar,
-                    writer,
-                    epoch,
-                    rank,
-                    ema=None):
-    net.train()
-    loader.sampler.set_epoch(epoch)
-
-    batches = len(loader)
+def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, writer, epoch, rank, ema=None):
+    model.train()
+    data_loader.sampler.set_epoch(epoch)
+    
+    num_iters = len(data_loader)
     batch_time = AverageMeter('Time', ':6.5f')
     data_time = AverageMeter('Data', ':6.5f')
     losses = AverageMeter('Loss', ':.7f')
     losses_det = AverageMeter('LossDet', ':.7f')
     losses_seg = AverageMeter('LossSeg', ':.7f')
-    lr = AverageMeter('lr', ':.7f')
-    meters = [batch_time, data_time, losses,losses_det,losses_seg,lr]
+    meters = [batch_time, data_time, losses, losses_det, losses_seg]
     meters_dict = {meter.name: meter for meter in meters}
-    progress = ProgressMeter(cfg.train.version, cfg.train.epochs, len(loader), meters, prefix='Train: ')
+    
+    start = time.time()
     end = time.time()
-
-    for ith_batch, data in enumerate(loader):
+    for idx, (ref_iter, image_iter, mask_iter, box_iter, gt_box_iter, mask_id, info_iter) in enumerate(data_loader):
         data_time.update(time.time() - end)
-
-        ref_iter,image_iter,mask_iter,box_iter, gt_box_iter, mask_id, info_iter= data
+        
         ref_iter = ref_iter.cuda(non_blocking=True)
         image_iter = image_iter.cuda(non_blocking=True)
         mask_iter = mask_iter.cuda(non_blocking=True)
         box_iter = box_iter.cuda( non_blocking=True)
 
-        #random resize
-        if len(cfg.train.multi_scale)>1:
-            h,w=cfg.train.multi_scale[np.random.randint(0,len(cfg.train.multi_scale))]
-            image_iter=F.interpolate(image_iter,(h,w))
-            mask_iter=F.interpolate(mask_iter,(h,w))
+        if cfg.train.multi_scale_training:
+            img_scales = cfg.train.multi_scale_training.img_scales
+            h, w = img_scales[np.random.randint(0, len(img_scales))]
+            image_iter = F.interpolate(image_iter, (h, w))
+            mask_iter = F.interpolate(mask_iter, (h, w))
 
         if scalar is not None:
             with torch.cuda.amp.autocast():
-                loss, loss_det, loss_seg = net(image_iter,ref_iter,det_label=box_iter,seg_label=mask_iter)
+                loss, loss_det, loss_seg = model(image_iter,ref_iter,det_label=box_iter,seg_label=mask_iter)
         else:
-            loss, loss_det, loss_seg = net(image_iter, ref_iter, det_label=box_iter,seg_label=mask_iter)
+            loss, loss_det, loss_seg = model(image_iter, ref_iter, det_label=box_iter,seg_label=mask_iter)
 
         optimizer.zero_grad()
         if scalar is not None:
             scalar.scale(loss).backward()
             scalar.step(optimizer)
-            if cfg.train.grad_norm_clip > 0:
+            if cfg.train.clip_grad_norm > 0:
                 nn.utils.clip_grad_norm_(
-                    net.parameters(),
-                    cfg.train.grad_norm_clip
+                    model.parameters(),
+                    cfg.train.clip_grad_norm
                 )
             scalar.update()
         else:
             loss.backward()
             # for p in list(filter(lambda p: p.grad is not None, net.parameters())):
             #     print(p.grad.data)
-            if cfg.train.grad_norm_clip > 0:
+            if cfg.train.clip_grad_norm > 0:
                 nn.utils.clip_grad_norm_(
-                    net.parameters(),
-                    cfg.train.grad_norm_clip
+                    model.parameters(),
+                    cfg.train.clip_grad_norm
                 )
             optimizer.step()
         scheduler.step()
+        
         if ema is not None:
             ema.update_params()
+        
         losses.update(loss.item(), image_iter.size(0))
         losses_det.update(loss_det.item(), image_iter.size(0))
         losses_seg.update(loss_seg.item(), image_iter.size(0))
-        lr.update(optimizer.param_groups[0]["lr"],-1)
 
         reduce_meters(meters_dict, rank, cfg)
-        if main_process(rank):
-            global_step = epoch * batches + ith_batch
+        if dist.get_rank() == 0:
+            global_step = epoch * num_iters + idx
             writer.add_scalar("loss/train", losses.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_det/train", losses_det.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_seg/train", losses_seg.avg_reduce, global_step=global_step)
-            if ith_batch % cfg.train.print_freq == 0 or ith_batch==len(loader):
-                progress.display(epoch, ith_batch)
+        
+        if idx % cfg.train.log_period == 0 or idx==len(data_loader):
+            # progress.display(epoch, ith_batch)
+            lr = optimizer.param_groups[0]['lr']
+            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            etas = batch_time.avg * (num_iters - idx)
+            logger.info(
+                f'Train: [{epoch}/{cfg.train.epochs}][{idx}/{num_iters}\t'
+                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.7f}\t'
+                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                f'loss {losses.val:.4f} ({losses.avg:.4f})\t'
+                f'det loss {losses_det.val:.4f} ({losses_det.avg:.4f})\t'
+                f'seg loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})\t'
+                f'mem {memory_used:.0f}MB')
+        
         # break
         batch_time.update(time.time() - end)
         end = time.time()
+    
+    epoch_time = time.time() - start
+    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+
 
 
 def main(cfg):
@@ -291,8 +297,8 @@ if __name__ == '__main__':
 
     # Path setting
     output_dir = cfg.train.output_dir
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+    logger = create_logger(output_dir=cfg.train.output_dir, dist_rank=dist.get_rank(), name=f"{cfg.model._target_}")
     
     # Logger setting
     if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):

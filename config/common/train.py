@@ -11,7 +11,8 @@ train = dict(
         init_method="env://",
         rank=0
     ),
-    epochs = 25
+    ema=dict(enabled=True),
+    epochs = 25,
     output_dir = "./output",
     log_period = 100,
     version = random.randint(0, 99999),
@@ -30,14 +31,14 @@ train = dict(
         min_lr = 0.000001,
     ),
 
+    multi_scale_training=dict(
+        enabled=True,
+        img_scales=[[224,224],[256,256],[288,288],[320,320],[352,352],
+                    [384,384],[416,416],[448,448],[480,480],[512,512],
+                    [544,544],[576,576],[608,608]]
+    ),
 
-    multi_scale = [[224,224],[256,256],[288,288],[320,320],[352,352],
-                   [384,384],[416,416],[448,448],[480,480],[512,512],
-                   [544,544],[576,576],[608,608]],
-
-    grad_norm_clip = 0.15,
-    use_ema = True,
-    amp = False,
+    clip_grad_norm=0.15,
     log_image = False,
     seed = 123456,
 )
