@@ -4,17 +4,21 @@ from simrec.config import LazyCall
 from simrec.scheduler.lr_scheduler import WarmupCosineLR
 
 train = dict(
-    gpus = [0],
     num_workers = 8,
-    tag = "test",
-    # Directory where output files are written
+    amp=dict(enabled=False),
+    ddp=dict(
+        backend="nccl",
+        init_method="env://",
+        rank=0
+    ),
+    epochs = 25
     output_dir = "./output",
+    log_period = 100,
     version = random.randint(0, 99999),
     log_path = "./logs/det_base_refcoco_baseline",
     resume_path = "",
     batch_size = 4,
     vl_pretrain_weight="",
-    epochs = 25,
 
     print_freq = 100,
 
@@ -25,14 +29,7 @@ train = dict(
         base_lr = 0.0001,
         min_lr = 0.000001,
     ),
-    
-    ddp = dict(
-        node_id = 0,
-        world_size = 1,
-        dist_url = "tcp://127.0.0.1:12345",
-        multiprocessing_distributed = True,
-        rank = 0
-    ),
+
 
     multi_scale = [[224,224],[256,256],[288,288],[320,320],[352,352],
                    [384,384],[416,416],[448,448],[480,480],[512,512],
