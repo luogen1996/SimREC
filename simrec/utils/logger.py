@@ -38,4 +38,4 @@ def create_logger(output_dir, dist_rank=0, name=''):
     file_handler.setFormatter(logging.Formatter(fmt=fmt, datefmt='%Y-%m-%d %H:%M:%S'))
     logger.addHandler(file_handler)
 
-    return 
+    return logger

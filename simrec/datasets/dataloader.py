@@ -25,7 +25,7 @@ def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle=True
     assert dist.is_initialized()
     dist_sampler = DistributedSampler(
                                 dataset,
-                                num_replicas=cfg.train.ddp.world_size,
+                                num_replicas=dist.get_world_size(),
                                 shuffle=shuffle,
                                 rank=rank,
                                 )

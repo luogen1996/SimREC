@@ -101,12 +101,12 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_iters - idx)
             logger.info(
-                f'Train: [{epoch}/{cfg.train.epochs}][{idx}/{num_iters}\t'
-                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.7f}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'loss {losses.val:.4f} ({losses.avg:.4f})\t'
-                f'det loss {losses_det.val:.4f} ({losses_det.avg:.4f})\t'
-                f'seg loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})\t'
+                f'Train: [{epoch}/{cfg.train.epochs}][{idx}/{num_iters}]  '
+                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.7f}  '
+                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})  '
+                f'loss {losses.val:.4f} ({losses.avg:.4f})  '
+                f'det loss {losses_det.val:.4f} ({losses_det.avg:.4f})  '
+                f'seg loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})  '
                 f'mem {memory_used:.0f}MB')
         
         # break
@@ -119,8 +119,8 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
 
 
 def main(cfg):
-    global best_det_acc,best_seg_acc
-    best_det_acc,best_seg_acc=0.,0.
+    global best_det_acc, best_seg_acc
+    best_det_acc, best_seg_acc=0.,0.
 
     # build training dataset and dataloader
     cfg.dataset.split = "train"
@@ -146,10 +146,10 @@ def main(cfg):
     # build model
     cfg.model.language_encoder.pretrained_emb = train_set.pretrained_emb
     cfg.model.language_encoder.token_size = train_set.token_size
-    net = instantiate(cfg.model)
+    model = instantiate(cfg.model)
 
     # build optimizer
-    params = filter(lambda p: p.requires_grad, net.parameters())
+    params = filter(lambda p: p.requires_grad, model.parameters())
     cfg.optim.params = params
     optimizer = instantiate(cfg.optim)
 
@@ -157,16 +157,19 @@ def main(cfg):
     ema=None
 
     torch.cuda.set_device(dist.get_rank())
-    net = DistributedDataParallel(net.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
+    model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
 
 
-    if main_process(dist.get_rank()):
-        print(cfg)
-        print(net)
-        total = sum([param.nelement() for param in net.parameters()])
-        print('  + Number of all params: %.2fM' % (total / 1e6))
-        total = sum([param.nelement() for param in net.parameters() if param.requires_grad])
-        print('  + Number of trainable params: %.2fM' % (total / 1e6))
+    # if main_process(dist.get_rank()):
+    #     print(cfg)
+    #     print(net)
+    #     total = sum([param.nelement() for param in net.parameters()])
+    #     print('  + Number of all params: %.2fM' % (total / 1e6))
+    #     total = sum([param.nelement() for param in net.parameters() if param.requires_grad])
+    #     print('  + Number of trainable params: %.2fM' % (total / 1e6))
+
+    if dist.get_rank() == 0:
+        logger.info(str(model))
 
     cfg.train.scheduler.epochs = cfg.train.epochs
     cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
@@ -187,8 +190,8 @@ def main(cfg):
                 new_dict[new_k] = checkpoint['state_dict'][k]
         if len(new_dict.keys())==0:
             new_dict=checkpoint['state_dict']
-        net.load_state_dict(new_dict,strict=False)
-        net.load_state_dict(checkpoint['state_dict'])
+        model.load_state_dict(new_dict,strict=False)
+        model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
@@ -205,7 +208,7 @@ def main(cfg):
                 new_dict[new_k] = checkpoint['state_dict'][k]
         if len(new_dict.keys())==0:
             new_dict=checkpoint['state_dict']
-        net.load_state_dict(new_dict,strict=False)
+        model.load_state_dict(new_dict,strict=False)
         start_epoch = 0
         if main_process(dist.get_rank()):
             print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
@@ -213,7 +216,7 @@ def main(cfg):
 
 
 
-    if cfg.train.amp:
+    if cfg.train.amp.enabled:
         assert torch.__version__ >= '1.6.0', \
             "Automatic Mixed Precision training only supported in PyTorch-1.6.0 or higher"
         scalar = torch.cuda.amp.GradScaler()
@@ -228,25 +231,25 @@ def main(cfg):
     save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if cfg.train.log_image else None
 
     for ith_epoch in range(start_epoch, cfg.train.epochs):
-        if cfg.train.use_ema and ema is None:
-            ema = EMA(net, 0.9997)
-        train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,dist.get_rank(),ema)
-        box_ap,mask_ap=validate(cfg, net,val_loader, writer,ith_epoch,dist.get_rank(),val_set.ix_to_token,save_ids=save_ids,ema=ema)
+        if cfg.train.ema.enabled and ema is None:
+            ema = EMA(model, 0.9997)
+        train_one_epoch(cfg, model, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,dist.get_rank(),ema)
+        box_ap,mask_ap=validate(cfg, model, val_loader, writer,ith_epoch,dist.get_rank(),val_set.ix_to_token,save_ids=save_ids,ema=ema)
 
         if main_process(dist.get_rank()):
             if ema is not None:
                 ema.apply_shadow()
-            torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
+            torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
                         'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
                        os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'last.pth'))
             if box_ap>best_det_acc:
                 best_det_acc=box_ap
-                torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
+                torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
                            os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'det_best.pth'))
             if mask_ap > best_seg_acc:
                 best_seg_acc=mask_ap
-                torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
+                torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
                             'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
                            os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'seg_best.pth'))
             if ema is not None:
@@ -298,8 +301,8 @@ if __name__ == '__main__':
     # Path setting
     output_dir = cfg.train.output_dir
     os.makedirs(output_dir, exist_ok=True)
-    logger = create_logger(output_dir=cfg.train.output_dir, dist_rank=dist.get_rank(), name=f"{cfg.model._target_}")
-    
+    logger = create_logger(output_dir=cfg.train.output_dir, dist_rank=dist.get_rank())
+
     # Logger setting
     if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
         os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'), exist_ok=True)
