@@ -10,3 +10,4 @@ pycocotools
 pyyaml
 omegaconf
 cloudpickle
+hydra-core

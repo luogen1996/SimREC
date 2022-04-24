@@ -25,9 +25,8 @@ train = dict(
         base_lr = 0.0001,
         min_lr = 0.000001,
     ),
-
-    distributed = dict(
-        enabled = True,
+    
+    ddp = dict(
         node_id = 0,
         world_size = 1,
         dist_url = "tcp://127.0.0.1:12345",

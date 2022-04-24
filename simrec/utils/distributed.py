@@ -13,11 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import numpy as np
-import warnings
-import random
-from typing import Optional
+from datetime import timedelta
 
 import torch
 import torch.distributed as dist
@@ -46,6 +42,19 @@ def is_main_process():
     return get_rank() == 0
 
 
+def get_local_size() -> int:
+    """
+    Returns:
+        The size of the per-machine process group,
+        i.e. the number of processes per machine.
+    """
+    if not dist.is_available():
+        return 1
+    if not dist.is_initialized():
+        return 1
+    return dist.get_world_size(group=_LOCAL_PROCESS_GROUP)
+
+
 def synchronize():
     """
     Helper function to synchronize (barrier) among all processes when
@@ -66,18 +75,18 @@ def synchronize():
         dist.barrier()
 
 
-def main_process(cfg, rank):
-    return not cfg.train.distributed.enabled or (cfg.train.distributed.enabled and rank == 0)
+def main_process(rank):
+    return rank==0
 
 
 def setup_distributed(cfg, rank: int, backend: str = 'NCCL'):
     if not dist.is_available():
         raise ModuleNotFoundError('torch.distributed package not found')
 
-    if cfg.train.distributed.world_size > len(cfg.train.gpus):
-        assert '127.0.0.1' not in cfg.train.distributed.dist_url, "DIST_URL is illegal with multi nodes distributed training"
+    if cfg.train.ddp.world_size > len(cfg.train.gpus):
+        assert '127.0.0.1' not in cfg.train.ddp.dist_url, "DIST_URL is illegal with multi nodes distributed training"
 
-    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.distributed.world_size, init_method=cfg.train.distributed.dist_url)
+    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.ddp.world_size, init_method=cfg.train.ddp.dist_url)
 
     if not dist.is_initialized():
         raise ValueError('init_process_group failed')
@@ -94,15 +103,12 @@ def reduce_meters(meters, rank, cfg):
         meter = meters[name]
         if not isinstance(meter, AverageMeter):
             raise TypeError("meter should be AverageMeter type")
-        if not cfg.train.distributed.enabled:  # single gpu
-            meter.update_reduce(meter.avg)
-        else:
-            avg = torch.tensor(meter.avg).unsqueeze(0).to(rank)
-            avg_reduce = [torch.ones_like(avg) for _ in range(dist.get_world_size())]
-            dist.all_gather(avg_reduce, avg)
-            if is_main_process():
-                value = torch.mean(torch.cat(avg_reduce)).item()
-                meter.update_reduce(value)
+        avg = torch.tensor(meter.avg).unsqueeze(0).to(rank)
+        avg_reduce = [torch.ones_like(avg) for _ in range(dist.get_world_size())]
+        dist.all_gather(avg_reduce, avg)
+        if is_main_process():
+            value = torch.mean(torch.cat(avg_reduce)).item()
+            meter.update_reduce(value)
 
 def find_free_port():
     import socket

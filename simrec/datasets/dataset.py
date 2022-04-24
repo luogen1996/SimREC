@@ -20,9 +20,9 @@ import numpy as np
 
 import torch
 import torch.utils.data as Data
-from torch.utils.data import DataLoader
 
 from .utils import label2yolobox
+from simrec.utils.distributed import is_main_process
 
 
 class RefCOCODataSet(Data.Dataset):
@@ -87,40 +87,32 @@ class RefCOCODataSet(Data.Dataset):
         # Define run data size
         self.data_size = len(self.refs_anno)
 
-        print(' ========== Dataset size:', self.data_size)
+        if is_main_process():
+            print(' ========== Dataset size:', self.data_size)
         # ------------------------
         # ---- Data statistic ----
         # ------------------------
         # Tokenize
         self.token_to_ix,self.ix_to_token, self.pretrained_emb, max_token = self.tokenize(stat_refs_list, use_glove)
         self.token_size = self.token_to_ix.__len__()
-        print(' ========== Question token vocab size:', self.token_size)
+
+        if is_main_process():
+            print(' ========== Question token vocab size:', self.token_size)
 
         self.max_token = max_token_length
         if self.max_token == -1:
             self.max_token = max_token
         
-        print('Max token length:', max_token, 'Trimmed to:', self.max_token)
-        print('Finished!')
-        print('')
+        if is_main_process():
+            print('Max token length:', max_token, 'Trimmed to:', self.max_token)
+            print('Finished!')
+            print('')
 
-        # self.candidate_transforms ={}
-        # if  self.split == 'train':
-        #     if 'RandAugment' in self.__C.DATA_AUGMENTATION:
-        #         self.candidate_transforms['RandAugment']=RandAugment(2,9)
-        #     if 'ElasticTransform' in self.__C.DATA_AUGMENTATION:
-        #         self.candidate_transforms['ElasticTransform']=A.ElasticTransform(p=0.5)
-        #     if 'GridDistortion' in self.__C.DATA_AUGMENTATION:
-        #         self.candidate_transforms['GridDistortion']=A.GridDistortion(p=0.5)
-        #     if 'RandomErasing' in self.__C.DATA_AUGMENTATION:
-        #         self.candidate_transforms['RandomErasing']=transforms.RandomErasing(p=0.3, scale=(0.02, 0.2), ratio=(0.05, 8),
-        #                                                                       value="random")
         if split == 'train':
             self.candidate_transforms = candidate_transforms
         else:
             self.candidate_transforms = {}
 
-        # self.transforms=transforms.Compose([transforms.ToTensor(), transforms.Normalize(__C.MEAN, __C.STD)])
         self.transforms = transforms
 
 
