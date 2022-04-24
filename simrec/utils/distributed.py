@@ -34,7 +34,7 @@ def get_world_size():
     return dist.get_world_size()
 
 
-def get_rank() -> int:
+def get_rank():
     if not dist.is_available():
         return 0
     if not dist.is_initialized():
@@ -64,17 +64,6 @@ def synchronize():
         dist.barrier(device_ids=[torch.cuda.current_device()])
     else:
         dist.barrier()
-
-
-def setup_gpu_env():
-    assert 'CUDA_DEVICE_ORDER' in os.environ.keys() and 'CUDA_VISIBLE_DEVICES' in os.environ.keys(), \
-        "set CUDA_DEVICE_ORDER and CUDE_VISIBLE_DEVICES environment variable before executing"
-    GPUs = os.environ['CUDA_VISIBLE_DEVICES']
-
-    _GPUs = [int(idx) for idx in GPUs if idx.isdigit()]
-    _USEs = [idx for idx in range(len(_GPUs))]
-
-    return _USEs
 
 
 def main_process(cfg, rank):
