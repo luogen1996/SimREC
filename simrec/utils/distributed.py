@@ -19,30 +19,51 @@ import warnings
 import random
 from typing import Optional
 
-import torch as th
-import torch.backends.cudnn as cudnn
+import torch
 import torch.distributed as dist
 
-from simrec.utils.logging import AverageMeter
+from simrec.utils.metric import AverageMeter
+
+_LOCAL_PROCESS_GROUP = None
+
+def get_world_size():
+    if not dist.is_available():
+        return 1
+    if not dist.is_initialized():
+        return 1
+    return dist.get_world_size()
 
 
-def seed_everything(SEED: Optional[int]):
-    if SEED is not None:
-        random.seed(SEED)
-        np.random.seed(SEED)
+def get_rank() -> int:
+    if not dist.is_available():
+        return 0
+    if not dist.is_initialized():
+        return 0
+    return dist.get_rank()
 
-        th.manual_seed(SEED)
-        th.cuda.manual_seed(SEED)
-        if th.cuda.device_count() > 1:
-            th.cuda.manual_seed_all(SEED)
 
-        cudnn.benchmark = False
-        cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
+def is_main_process():
+    return get_rank() == 0
+
+
+def synchronize():
+    """
+    Helper function to synchronize (barrier) among all processes when
+    using distributed training
+    """
+    if not dist.is_available():
+        return
+    if not dist.is_initialized():
+        return
+    world_size = dist.get_world_size()
+    if world_size == 1:
+        return
+    if dist.get_backend() == dist.Backend.NCCL:
+        # This argument is needed to avoid warnings.
+        # It's valid only for NCCL backend.
+        dist.barrier(device_ids=[torch.cuda.current_device()])
+    else:
+        dist.barrier()
 
 
 def setup_gpu_env():
@@ -65,9 +86,9 @@ def setup_distributed(cfg, rank: int, backend: str = 'NCCL'):
         raise ModuleNotFoundError('torch.distributed package not found')
 
     if cfg.train.distributed.world_size > len(cfg.train.gpus):
-        assert '127.0.0.1' not in __C.DIST_URL, "DIST_URL is illegal with multi nodes distributed training"
+        assert '127.0.0.1' not in cfg.train.distributed.dist_url, "DIST_URL is illegal with multi nodes distributed training"
 
-    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.distributed.world_size, init_method=__C.DIST_URL)
+    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.distributed.world_size, init_method=cfg.train.distributed.dist_url)
 
     if not dist.is_initialized():
         raise ValueError('init_process_group failed')
@@ -87,11 +108,19 @@ def reduce_meters(meters, rank, cfg):
         if not cfg.train.distributed.enabled:  # single gpu
             meter.update_reduce(meter.avg)
         else:
-            avg = th.tensor(meter.avg).unsqueeze(0).to(rank)
-            avg_reduce = [th.ones_like(avg) for _ in range(dist.get_world_size())]
-            # print("rank {} gathering {} meter".format(rank, name))
-            # print("rank {}, avg {}, avg_reduce {}".format(rank, avg, avg_reduce))
+            avg = torch.tensor(meter.avg).unsqueeze(0).to(rank)
+            avg_reduce = [torch.ones_like(avg) for _ in range(dist.get_world_size())]
             dist.all_gather(avg_reduce, avg)
-            if main_process(cfg, rank):
-                value = th.mean(th.cat(avg_reduce)).item()
+            if is_main_process():
+                value = torch.mean(torch.cat(avg_reduce)).item()
                 meter.update_reduce(value)
+
+def find_free_port():
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Binding to port 0 will cause the OS to find an available port for us
+    sock.bind(("", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    # NOTE: there is still a chance the port could be taken by other processes.
+    return port

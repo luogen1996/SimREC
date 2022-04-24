@@ -1,16 +1,25 @@
-import argparse
+import os
 import time
+import argparse
+import numpy as np
 from tensorboardX import SummaryWriter
 
+import torch
 import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.nn import DataParallel as DP
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from simrec.config import instantiate, LazyConfig
-from simrec.utils.ckpt import *
-from simrec.utils.logging import *
-from simrec.utils.distributed import *
+
+
 from simrec.datasets.dataloader import build_loader
-from simrec.utils.utils import *
+from simrec.datasets.utils import yolobox2label
+from simrec.models.utils import batch_box_iou, mask_processing, mask_iou
+from simrec.utils.distributed import is_main_process, reduce_meters, find_free_port
+from simrec.utils.visualize import draw_visualization, normed2original
+from simrec.utils.env import seed_everything, setup_unique_version
+from simrec.utils.metric import AverageMeter, ProgressMeter
 
 
 def validate(cfg,
@@ -37,10 +46,12 @@ def validate(cfg,
     mask_aps={}
     for item in np.arange(0.5, 1, 0.05):
         mask_aps[item]=[]
+    
     meters = [batch_time, data_time, losses, box_ap, mask_ap,inconsistency_error]
     meters_dict = {meter.name: meter for meter in meters}
     progress = ProgressMeter(cfg.train.version, cfg.train.epochs, len(loader), meters, prefix=prefix+': ')
-    with th.no_grad():
+    
+    with torch.no_grad():
         end = time.time()
         for ith_batch, data in enumerate(loader):
             ref_iter, image_iter, mask_iter, box_iter,gt_box_iter, mask_id, info_iter = data
@@ -112,12 +123,12 @@ def validate(cfg,
 
             reduce_meters(meters_dict, rank, cfg)
 
-            if (ith_batch % cfg.train.print_freq == 0 or ith_batch==(len(loader)-1)) and main_process(cfg, rank):
+            if (ith_batch % cfg.train.print_freq == 0 or ith_batch==(len(loader)-1)) and is_main_process():
                 progress.display(epoch, ith_batch)
             batch_time.update(time.time() - end)
             end = time.time()
 
-        if main_process(cfg, rank) and writer is not None:
+        if is_main_process() and writer is not None:
             writer.add_scalar("Acc/BoxIoU@0.5", box_ap.avg_reduce, global_step=epoch)
             writer.add_scalar("Acc/MaskIoU", mask_ap.avg_reduce, global_step=epoch)
             writer.add_scalar("Acc/IE", inconsistency_error.avg_reduce, global_step=epoch)
@@ -136,7 +147,7 @@ def main_worker(gpu, cfg):
         if cfg.train.distributed.dist_url == "env://" and cfg.train.distributed.rank == -1:
             cfg.train.distributed.rank = int(os.environ["RANK"])
         if cfg.train.distributed.enabled:
-            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.distributed.gpus) + gpu
+            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.gpus) + gpu
         dist.init_process_group(
             backend=dist.Backend('NCCL'), 
             init_method=cfg.train.distributed.dist_url, 
@@ -203,7 +214,7 @@ def main_worker(gpu, cfg):
     else:
         net = DP(net.cuda())
 
-    if main_process(cfg, gpu):
+    if is_main_process():
         print(cfg)
         total = sum([param.nelement() for param in net.parameters()])
         print('  + Number of all params: %.2fM' % (total / 1e6))
@@ -217,18 +228,18 @@ def main_worker(gpu, cfg):
         optimizer.load_state_dict(checkpoint['optimizer'])
         # scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
-        if main_process(cfg, gpu):
+        if is_main_process():
             print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
     if cfg.train.amp:
-        assert th.__version__ >= '1.6.0', \
+        assert torch.__version__ >= '1.6.0', \
             "Automatic Mixed Precision training only supported in PyTorch-1.6.0 or higher"
-        scalar = th.cuda.amp.GradScaler()
+        scalar = torch.cuda.amp.GradScaler()
     else:
         scalar = None
 
-    if main_process(cfg, gpu):
+    if is_main_process():
         writer = SummaryWriter(log_dir=os.path.join(cfg.train.log_path, str(cfg.train.version)))
     else:
         writer = None
@@ -237,7 +248,7 @@ def main_worker(gpu, cfg):
     for loader_,prefix_ in zip(loaders,prefixs):
         print()
         box_ap,mask_ap=validate(cfg, net, loader_ , writer, 0, gpu, val_set.ix_to_token,save_ids=save_ids,prefix=prefix_)
-        print(box_ap,mask_ap)
+        print(box_ap, mask_ap)
 
 
 def main():

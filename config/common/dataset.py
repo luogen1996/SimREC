@@ -44,15 +44,15 @@ dataset = LazyCall(RefCOCODataSet)(
         ]
     ),
     candidate_transforms = {
-        "RandAugment": RandAugment(2, 9),
-        "ElasticTransform": A.ElasticTransform(p=0.5),
-        "GridDistortion": A.GridDistortion(p=0.5),
-        "RandomErasing": transforms.RandomErasing(
-            p = 0.3,
-            scale = (0.02, 0.2),
-            ratio=(0.05, 8),
-            value="random",
-        )
+        # "RandAugment": RandAugment(2, 9),
+        # "ElasticTransform": A.ElasticTransform(p=0.5),
+        # "GridDistortion": A.GridDistortion(p=0.5),
+        # "RandomErasing": transforms.RandomErasing(
+        #     p = 0.3,
+        #     scale = (0.02, 0.2),
+        #     ratio=(0.05, 8),
+        #     value="random",
+        # )
     },
     max_token_length = 15,
     use_glove = True,

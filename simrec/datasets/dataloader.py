@@ -19,7 +19,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
 
-def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle,drop_last=False):
+def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle, drop_last=False):
     if cfg.train.distributed.enabled:
         assert cfg.train.batch_size % len(cfg.train.gpus) == 0
         assert cfg.train.num_workers % len(cfg.train.gpus) == 0
