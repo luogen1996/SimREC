@@ -20,8 +20,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from simrec.layers.activation import get_activation
-from simrec.utils.utils import bboxes_iou
 
+from ..utils.box_op import bboxes_iou
 from ..losses.iou_loss import IOUloss
 
 class BaseConv(nn.Module):

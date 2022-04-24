@@ -121,7 +121,7 @@ def main_worker(gpu, cfg):
         if cfg.train.distributed.dist_url == "env://" and cfg.train.distributed.rank == -1:
             cfg.train.distributed.rank = int(os.environ["RANK"])
         if cfg.train.distributed.enabled:
-            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.distributed.gpus) + gpu
+            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.gpus) + gpu
         dist.init_process_group(
             backend=dist.Backend('NCCL'), 
             init_method=cfg.train.distributed.dist_url, 
@@ -242,7 +242,7 @@ def main_worker(gpu, cfg):
     for ith_epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.use_ema and ema is None:
             ema = EMA(net, 0.9997)
-        # train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
+        train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
         box_ap,mask_ap=validate(cfg, net,val_loader, writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
 
         if main_process(cfg, gpu):

@@ -16,7 +16,7 @@ from simrec.config import instantiate, LazyConfig
 from simrec.datasets.dataloader import build_loader
 from simrec.datasets.utils import yolobox2label
 from simrec.models.utils import batch_box_iou, mask_processing, mask_iou
-from simrec.utils.distributed import seed_everything, main_process, reduce_meters, find_free_port
+from simrec.utils.distributed import is_main_process, reduce_meters, find_free_port
 from simrec.utils.visualize import draw_visualization, normed2original
 from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.metric import AverageMeter, ProgressMeter
@@ -123,12 +123,12 @@ def validate(cfg,
 
             reduce_meters(meters_dict, rank, cfg)
 
-            if (ith_batch % cfg.train.print_freq == 0 or ith_batch==(len(loader)-1)) and main_process(cfg, rank):
+            if (ith_batch % cfg.train.print_freq == 0 or ith_batch==(len(loader)-1)) and is_main_process():
                 progress.display(epoch, ith_batch)
             batch_time.update(time.time() - end)
             end = time.time()
 
-        if main_process(cfg, rank) and writer is not None:
+        if is_main_process() and writer is not None:
             writer.add_scalar("Acc/BoxIoU@0.5", box_ap.avg_reduce, global_step=epoch)
             writer.add_scalar("Acc/MaskIoU", mask_ap.avg_reduce, global_step=epoch)
             writer.add_scalar("Acc/IE", inconsistency_error.avg_reduce, global_step=epoch)
@@ -147,7 +147,7 @@ def main_worker(gpu, cfg):
         if cfg.train.distributed.dist_url == "env://" and cfg.train.distributed.rank == -1:
             cfg.train.distributed.rank = int(os.environ["RANK"])
         if cfg.train.distributed.enabled:
-            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.distributed.gpus) + gpu
+            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.gpus) + gpu
         dist.init_process_group(
             backend=dist.Backend('NCCL'), 
             init_method=cfg.train.distributed.dist_url, 
@@ -214,7 +214,7 @@ def main_worker(gpu, cfg):
     else:
         net = DP(net.cuda())
 
-    if main_process(cfg, gpu):
+    if is_main_process():
         print(cfg)
         total = sum([param.nelement() for param in net.parameters()])
         print('  + Number of all params: %.2fM' % (total / 1e6))
@@ -228,7 +228,7 @@ def main_worker(gpu, cfg):
         optimizer.load_state_dict(checkpoint['optimizer'])
         # scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
-        if main_process(cfg, gpu):
+        if is_main_process():
             print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
@@ -239,7 +239,7 @@ def main_worker(gpu, cfg):
     else:
         scalar = None
 
-    if main_process(cfg, gpu):
+    if is_main_process():
         writer = SummaryWriter(log_dir=os.path.join(cfg.train.log_path, str(cfg.train.version)))
     else:
         writer = None
