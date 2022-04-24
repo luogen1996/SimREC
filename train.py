@@ -40,10 +40,10 @@ def train_one_epoch(cfg,
     batches = len(loader)
     batch_time = AverageMeter('Time', ':6.5f')
     data_time = AverageMeter('Data', ':6.5f')
-    losses = AverageMeter('Loss', ':.4f')
-    losses_det = AverageMeter('LossDet', ':.4f')
-    losses_seg = AverageMeter('LossSeg', ':.4f')
-    lr = AverageMeter('lr', ':.5f')
+    losses = AverageMeter('Loss', ':.7f')
+    losses_det = AverageMeter('LossDet', ':.7f')
+    losses_seg = AverageMeter('LossSeg', ':.7f')
+    lr = AverageMeter('lr', ':.7f')
     meters = [batch_time, data_time, losses,losses_det,losses_seg,lr]
     meters_dict = {meter.name: meter for meter in meters}
     progress = ProgressMeter(cfg.train.tag, cfg.train.epochs, len(loader), meters, prefix='Train: ')
@@ -133,6 +133,7 @@ def main_worker(gpu, cfg):
         cfg, 
         train_set, 
         gpu, 
+        shuffle=True,
         drop_last=True
     )
     
@@ -280,8 +281,8 @@ def main():
     seed_everything(cfg.train.seed)
     N_GPU = len(cfg.train.gpus) if cfg.train.gpus else 1
 
-    if not os.path.exists(os.path.join(cfg.train.log_path,str(cfg.train.version))):
-        os.makedirs(os.path.join(cfg.train.log_path,str(cfg.train.version),'ckpt'),exist_ok=True)
+    if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
+        os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'),exist_ok=True)
 
     cfg.train.ddp.world_size *= N_GPU
     cfg.train.ddp.dist_url = f"tcp://127.0.0.1:{find_free_port()}"

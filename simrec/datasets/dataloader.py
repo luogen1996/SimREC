@@ -19,19 +19,19 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
 
-def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle=False, drop_last=False):
+def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle=True, drop_last=False):
     assert cfg.train.batch_size % len(cfg.train.gpus) == 0
     assert cfg.train.num_workers % len(cfg.train.gpus) == 0
     assert dist.is_initialized()
     dist_sampler = DistributedSampler(
                                 dataset,
                                 num_replicas=cfg.train.ddp.world_size,
+                                shuffle=shuffle,
                                 rank=rank,
                                 )
     data_loader = DataLoader(
                             dataset,
                             batch_size=cfg.train.batch_size // len(cfg.train.gpus),
-                            shuffle=shuffle,
                             sampler=dist_sampler,
                             num_workers=cfg.train.num_workers //len(cfg.train.gpus),
                             pin_memory=True,
