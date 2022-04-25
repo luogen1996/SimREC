@@ -17,24 +17,16 @@ train = dict(
         name="cosine",
         decay_epochs=[30, 35, 37],
         lr_decay_rate=0.2,
-    )
+    ),
     amp=dict(enabled=False),
     ddp=dict(
         backend="nccl",
         init_method="env://",
     ),
     ema=dict(enabled=True, alpha=0.9997, buffer_ema=True),
-    resume=dict(enable=False, auto_resume=True, resume_path=""),
+    auto_resume=dict(enabled=True),
+    resume_path="",
     vl_pretrain_weight="",
-
-    # scheduler = LazyCall(WarmupCosineLR)(
-    #     # optimizer and epochs and n_iter_per_epoch will be set in train.py
-    #     warmup_epochs = 3,
-    #     warmup_lr = 0.0000001,
-    #     base_lr = 0.0001,
-    #     min_lr = 0.000001,
-    # ),
-
     multi_scale_training=dict(
         enabled=True,
         img_scales=[[224,224],[256,256],[288,288],[320,320],[352,352],
@@ -42,6 +34,6 @@ train = dict(
                     [544,544],[576,576],[608,608]]
     ),
     clip_grad_norm=0.15,
-    log_image = False,
+    log_image=False,
     seed = 123456,
 )

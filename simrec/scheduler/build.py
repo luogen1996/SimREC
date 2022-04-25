@@ -17,7 +17,7 @@ from .lr_scheduler import StepLR, WarmupCosineLR
 
 def build_lr_scheduler(cfg, optimizer, n_iter_per_epoch):
     """Build learning rate scheduler."""
-    scheduler_name = cfg.train.scheduler.name.low()
+    scheduler_name = cfg.train.scheduler.name.lower()
     
     scheduler = None
     if scheduler_name == "cosine":

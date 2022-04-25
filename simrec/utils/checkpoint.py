@@ -14,64 +14,23 @@
 # limitations under the License.
 
 import os
-import warnings
 
 import torch
-from torch.nn import DataParallel as DP
-from torch.nn.parallel import DistributedDataParallel as DDP
+
+from simrec.utils.distributed import is_main_process
 
 
-def save_ckpt(net, optimizer,scheduler, misc, __C):
-    path = __C.CKPTs_PATH
-    if not os.path.exists(path):
-        os.mkdir(path)
-    path += '/' + __C.VERSION
-    if not os.path.exists(path):
-        os.mkdir(path)
-    assert isinstance(misc, dict)
-    if isinstance(net, DP) or isinstance(net, DDP):
-        path += '/' + 'dist_'
-    path += str(misc['epoch']) + '.pth.tar'
-    ckpt = {
-        'net_state_dict': net.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'scheduler':scheduler.state_dict(),
-        'epoch':misc['epoch'],
-        'lr':optimizer.param_groups[0]["lr"],
-    }
-    torch.save(ckpt, path)
-
-
-def load_ckpt(net, optimizer,scheduler, path, rank=None):
-    loc = f'cuda:{rank}' if rank is not None else None
-    ckpt = torch.load(path, map_location=loc)
-
-    flag = isinstance(net, DP) or isinstance(net, DDP)
-    if '_dist' in path:
-        if not flag:
-            for name in ckpt['net_state_dict']:
-                assert name.startswith('module.')
-                ckpt['net_state_dict'][name.lstrip('module.')] = ckpt['net_state_dict'].pop(name)
-    else:
-        if flag:
-            for name in ckpt['net_state_dict']:
-                ckpt['net_state_dict']['module.' + name] = ckpt['net_state_dict'].pop(name)
-
-    optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-
-    scheduler.load_state_dict(ckpt['scheduler'])
-
-    missing, unexpected = net.load_state_dict(ckpt['net_state_dict'], strict=False)
-    if unexpected.__len__ != 0:
-        warnings.warn(f'Current model misses {unexpected.__len__} parameters from checkpointing model')
-        for name in missing:
-            print('\n' + name + '\n')
-    if missing.__len__ != 0:
-        warnings.warn(f'Current model contains {missing.__len__} parameters that checkpointing model doesn\'t contain')
-        for name in unexpected:
-            print('\n' + name + '\n')
-
-    return ckpt
+def load_checkpoint(cfg, model, optimizer, scheduler, logger):
+    logger.info(f"==============> Resuming form {cfg.train.resume_path}....................")
+    checkpoint = torch.load(cfg.train.resume_path, map_location=lambda storage, loc: storage.cuda())
+    msg = model.load_state_dict(checkpoint['state_dict'], strict=False)
+    logger.info(msg)
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    scheduler.load_state_dict(checkpoint["scheduler"])
+    start_epoch = checkpoint["epoch"]
+    logger.info("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
+                "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
+    return start_epoch + 1
 
 
 def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=False, seg_best=False):
@@ -100,3 +59,15 @@ def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=Fa
         seg_best_model_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
         torch.save(save_state, seg_best_model_path)
     logger.info(f"checkpoints saved !!!")
+
+
+def auto_resume_helper(output_dir):
+    checkpoints = os.listdir(output_dir)
+    checkpoints = [ckpt for ckpt in checkpoints if ckpt.endswith('pth')]
+    print(f"All checkpoints founded in {output_dir}: {checkpoints}")
+    if len(checkpoints) > 0:
+        resume_file = os.path.join(output_dir, "last_checkpoint.pth")
+    else:
+        resume_file = None
+
+    return resume_file

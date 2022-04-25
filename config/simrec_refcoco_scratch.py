@@ -8,3 +8,5 @@ from .common.models.simrec import model
 dataset.ann_path["refcoco"] = "/home/rentianhe/dataset/rec/anns/refcoco.json"
 dataset.image_path["refcoco"] = "/home/rentianhe/dataset/rec/images/train2014"
 dataset.mask_path["refcoco"] = "/home/rentianhe/dataset/rec/masks/refcoco"
+
+train.resume_path = "/home/rentianhe/code/SimREC/output/ckpt_epoch_3.pth"
