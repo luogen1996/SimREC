@@ -10,3 +10,5 @@ pycocotools
 pyyaml
 omegaconf
 cloudpickle
+hydra-core
+termcolor

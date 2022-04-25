@@ -72,3 +72,31 @@ def load_ckpt(net, optimizer,scheduler, path, rank=None):
             print('\n' + name + '\n')
 
     return ckpt
+
+
+def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=False, seg_best=False):
+    save_state = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'lr': optimizer.param_groups[0]["lr"]
+    }
+    logger.info(f"saving checkpoints......")
+    save_path = os.path.join(cfg.train.output_dir, f'ckpt_epoch_{epoch}.pth')
+    torch.save(save_state, save_path)
+
+    # save last checkpoint
+    last_checkpoint_path = os.path.join(cfg.train.output_dir, f'last_checkpoint.pth')
+    torch.save(save_state, last_checkpoint_path)
+
+    # save best detection model
+    if det_best:
+        det_best_model_path = os.path.join(cfg.train.output_dir, f'det_best_model.pth')
+        torch.save(save_state, det_best_model_path)
+    
+    # save best segmentation model
+    if seg_best:
+        seg_best_model_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
+        torch.save(save_state, seg_best_model_path)
+    logger.info(f"checkpoints saved !!!")

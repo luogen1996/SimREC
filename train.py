@@ -10,16 +10,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from torch.nn.parallel import DataParallel as DP
-from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel
 
-from simrec.config import LazyConfig, instantiate
+from simrec.config import LazyConfig, instantiate, try_get_key
 from simrec.datasets.dataloader import build_loader
 from simrec.scheduler.build import build_lr_scheduler
 from simrec.utils.metric import AverageMeter, ProgressMeter
-from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed, find_free_port
+from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed, find_free_port, get_rank
 from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.model_ema import EMA
+from simrec.utils.logger import create_logger
 
 
 from test import validate
@@ -36,16 +36,15 @@ def train_one_epoch(cfg,
                     rank,
                     ema=None):
     net.train()
-    if cfg.train.distributed.enabled:
-        loader.sampler.set_epoch(epoch)
+    loader.sampler.set_epoch(epoch)
 
     batches = len(loader)
     batch_time = AverageMeter('Time', ':6.5f')
     data_time = AverageMeter('Data', ':6.5f')
-    losses = AverageMeter('Loss', ':.4f')
-    losses_det = AverageMeter('LossDet', ':.4f')
-    losses_seg = AverageMeter('LossSeg', ':.4f')
-    lr = AverageMeter('lr', ':.5f')
+    losses = AverageMeter('Loss', ':.7f')
+    losses_det = AverageMeter('LossDet', ':.7f')
+    losses_seg = AverageMeter('LossSeg', ':.7f')
+    lr = AverageMeter('lr', ':.7f')
     meters = [batch_time, data_time, losses,losses_det,losses_seg,lr]
     meters_dict = {meter.name: meter for meter in meters}
     progress = ProgressMeter(cfg.train.tag, cfg.train.epochs, len(loader), meters, prefix='Train: ')
@@ -101,7 +100,7 @@ def train_one_epoch(cfg,
         lr.update(optimizer.param_groups[0]["lr"],-1)
 
         reduce_meters(meters_dict, rank, cfg)
-        if main_process(cfg, rank):
+        if main_process(rank):
             global_step = epoch * batches + ith_batch
             writer.add_scalar("loss/train", losses.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_det/train", losses_det.avg_reduce, global_step=global_step)
@@ -117,17 +116,16 @@ def main_worker(gpu, cfg):
     global best_det_acc,best_seg_acc
     best_det_acc,best_seg_acc=0.,0.
     
-    if cfg.train.distributed.enabled:
-        if cfg.train.distributed.dist_url == "env://" and cfg.train.distributed.rank == -1:
-            cfg.train.distributed.rank = int(os.environ["RANK"])
-        if cfg.train.distributed.enabled:
-            cfg.train.distributed.rank = cfg.train.distributed.rank * len(cfg.train.gpus) + gpu
-        dist.init_process_group(
-            backend=dist.Backend('NCCL'), 
-            init_method=cfg.train.distributed.dist_url, 
-            world_size=cfg.train.distributed.world_size, 
-            rank=cfg.train.distributed.rank
-        )
+    if cfg.train.ddp.dist_url == "env://" and cfg.train.ddp.rank == -1:
+        cfg.train.ddp.rank = int(os.environ["RANK"])
+    cfg.train.ddp.rank = cfg.train.ddp.rank * len(cfg.train.gpus) + gpu
+            
+    dist.init_process_group(
+        backend=dist.Backend('NCCL'), 
+        init_method=cfg.train.ddp.dist_url, 
+        world_size=cfg.train.ddp.world_size, 
+        rank=cfg.train.ddp.rank
+    )
 
     # build training dataset and dataloader
     cfg.dataset.split = "train"
@@ -136,7 +134,7 @@ def main_worker(gpu, cfg):
         cfg, 
         train_set, 
         gpu, 
-        shuffle=(not cfg.train.distributed.enabled),
+        shuffle=True,
         drop_last=True
     )
     
@@ -163,16 +161,11 @@ def main_worker(gpu, cfg):
     # model ema
     ema=None
 
-    if cfg.train.distributed.enabled:
-        torch.cuda.set_device(gpu)
-        net = DDP(net.cuda(), device_ids=[gpu],find_unused_parameters=True)
-    elif len(gpu)==1:
-        net.cuda()
-    else:
-        net = DP(net.cuda())
+    torch.cuda.set_device(gpu)
+    net = DistributedDataParallel(net.cuda(), device_ids=[gpu], find_unused_parameters=True)
 
 
-    if main_process(cfg, gpu):
+    if main_process(gpu):
         print(cfg)
         print(net)
         total = sum([param.nelement() for param in net.parameters()])
@@ -204,7 +197,7 @@ def main_worker(gpu, cfg):
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
-        if main_process(cfg, gpu):
+        if main_process(gpu):
             print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
@@ -219,7 +212,7 @@ def main_worker(gpu, cfg):
             new_dict=checkpoint['state_dict']
         net.load_state_dict(new_dict,strict=False)
         start_epoch = 0
-        if main_process(cfg, gpu):
+        if main_process(gpu):
             print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
@@ -232,7 +225,7 @@ def main_worker(gpu, cfg):
     else:
         scalar = None
 
-    if main_process(cfg, gpu):
+    if main_process(gpu):
         writer = SummaryWriter(log_dir=os.path.join(cfg.train.log_path, str(cfg.train.version)))
     else:
         writer = None
@@ -245,7 +238,7 @@ def main_worker(gpu, cfg):
         train_one_epoch(cfg, net, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,gpu,ema)
         box_ap,mask_ap=validate(cfg, net,val_loader, writer,ith_epoch,gpu,val_set.ix_to_token,save_ids=save_ids,ema=ema)
 
-        if main_process(cfg, gpu):
+        if main_process(gpu):
             if ema is not None:
                 ema.apply_shadow()
             torch.save({'epoch': ith_epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict(),
@@ -264,34 +257,49 @@ def main_worker(gpu, cfg):
             if ema is not None:
                 ema.restore()
 
-    if cfg.train.distributed.enabled:
-        cleanup_distributed()
+    cleanup_distributed()
 
 
 def main():
     parser = argparse.ArgumentParser(description="SimREC")
     parser.add_argument('--config', type=str, required=True, default='./config/simrec_refcoco_scratch.py')
+    parser.add_argument(
+        "opts",
+        help="""
+            Modify config options at the end of the command. For Yacs configs, use
+            space-separated "PATH.KEY VALUE" pairs.
+            For python-based LazyConfig, use "path.key=value".
+        """.strip(),
+        default=None,
+        nargs=argparse.REMAINDER,
+    )
     args=parser.parse_args()
     cfg = LazyConfig.load(args.config)
+    cfg = LazyConfig.apply_overrides(cfg, args.opts)
+
+    # Environments setting
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in cfg.train.gpus)
     setup_unique_version(cfg)
     seed_everything(cfg.train.seed)
-    N_GPU=len(cfg.train.gpus)
+    N_GPU = len(cfg.train.gpus) if cfg.train.gpus else 1
 
-    if not os.path.exists(os.path.join(cfg.train.log_path,str(cfg.train.version))):
-        os.makedirs(os.path.join(cfg.train.log_path,str(cfg.train.version),'ckpt'),exist_ok=True)
+    # Refine ddp settings
+    cfg.train.ddp.world_size *= N_GPU
+    cfg.train.ddp.dist_url = f"tcp://127.0.0.1:{find_free_port()}"
 
-    if N_GPU == 1:
-        cfg.train.distributed.enabled = False
-    else:
-        # turn on single or multi node multi gpus training
-        cfg.train.distributed.enabled = True
-        cfg.train.distributed.world_size *= N_GPU
-        cfg.train.distributed.dist_url = f"tcp://127.0.0.1:{find_free_port()}"
-    if cfg.train.distributed.enabled:
-        mp.spawn(main_worker, args=(cfg,), nprocs=N_GPU, join=True)
-    else:
-        main_worker(cfg.train.gpus, cfg)
+    output_dir = cfg.train.output_dir
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        
+    path = os.path.join(cfg.train.output_dir, "config.yaml")
+    LazyConfig.save(cfg, path)
+    
+    # Logger setting
+    if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
+        os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'), exist_ok=True)
+    
+
+    mp.spawn(main_worker, args=(cfg, ), nprocs=N_GPU, join=True)
 
 
 if __name__ == '__main__':

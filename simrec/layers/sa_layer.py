@@ -97,7 +97,7 @@ class AttFlat(nn.Module):
         if x_mask is not None:
             att = att.masked_fill(
                 x_mask.squeeze(1).squeeze(1).unsqueeze(2),
-                -1e9
+                -1e4
             )
         att = F.softmax(att, dim=1)
 
