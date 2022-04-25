@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import argparse
 import numpy as np
@@ -8,13 +9,12 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from simrec.config import instantiate, LazyConfig
-
-
 from simrec.datasets.dataloader import build_loader
 from simrec.datasets.utils import yolobox2label
 from simrec.models.utils import batch_box_iou, mask_processing, mask_iou
-from simrec.utils.distributed import is_main_process, reduce_meters, find_free_port
+from simrec.utils.distributed import is_main_process, reduce_meters
 from simrec.utils.visualize import draw_visualization, normed2original
 from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.logger import create_logger
@@ -241,6 +241,7 @@ def main(cfg):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="SimREC")
     parser.add_argument('--config', type=str, required=True, default='./config/simrec_refcoco_scratch.py')
+    parser.add_argument('--eval-weights', type=str, required=True, default='')
     parser.add_argument(
         "opts",
         help="""

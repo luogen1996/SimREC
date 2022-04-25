@@ -72,3 +72,34 @@ def load_ckpt(net, optimizer,scheduler, path, rank=None):
             print('\n' + name + '\n')
 
     return ckpt
+
+
+def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=False, seg_best=False):
+    save_state = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'lr': optimizer.param_groups[0]["lr"]
+    }
+    save_path = os.path.join(cfg.train.output_dir, f'ckpt_epoch_{epoch}.pth')
+    last_checkpoint_path = os.path.join(cfg.train.output_dir, f'last_checkpoint.pth')
+    logger.info(f"{save_path} saving......")
+    torch.save(save_state, save_path)
+    logger.info(f"{save_path} saved !!!")
+
+    logger.info(f"{last_checkpoint_path} saving......")
+    torch.save(save_state, save_path)
+    logger.info(f"{last_checkpoint_path} saved !!!")
+
+    if det_best:
+        save_path = os.path.join(cfg.train.output_dir, f'det_best_model.pth')
+        logger.info(f"{save_path} saving......")
+        torch.save(save_state, save_path)
+        logger.info(f"{save_path} saved !!!")
+    
+    if seg_best:
+        save_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
+        logger.info(f"{save_path} saving......")
+        torch.save(save_state, save_path)
+        logger.info(f"{save_path} saved !!!")

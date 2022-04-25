@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import datetime
 import argparse
@@ -11,14 +12,16 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from simrec.config import LazyConfig, instantiate
 from simrec.datasets.dataloader import build_loader
 from simrec.scheduler.build import build_lr_scheduler
 from simrec.utils.metric import AverageMeter
 from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
-from simrec.utils.env import seed_everything, setup_unique_version
+from simrec.utils.env import seed_everything
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
+from simrec.utils.checkpoint import save_checkpoint
 
 from tools.eval_engine import validate
 
@@ -154,6 +157,7 @@ def main(cfg):
 
     torch.cuda.set_device(dist.get_rank())
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
+    model_without_ddp = model.module
 
     if is_main_process():
         total_params = sum([param.nelement() for param in model.parameters()])
@@ -168,42 +172,42 @@ def main(cfg):
 
     start_epoch = 0
 
-    if os.path.isfile(cfg.train.resume_path):
-        checkpoint = torch.load(
-            cfg.train.resume_path, 
-            map_location=lambda storage, 
-            loc: storage.cuda()
-        )
-        new_dict = {}
-        for k in checkpoint['state_dict']:
-            if 'module.' in k:
-                new_k = k.replace('module.', '')
-                new_dict[new_k] = checkpoint['state_dict'][k]
-        if len(new_dict.keys())==0:
-            new_dict=checkpoint['state_dict']
-        model.load_state_dict(new_dict,strict=False)
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
-        start_epoch = checkpoint['epoch']
-        if is_main_process():
-            print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
-                  "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
+    # if os.path.isfile(cfg.train.resume_path):
+    #     checkpoint = torch.load(
+    #         cfg.train.resume_path, 
+    #         map_location=lambda storage, 
+    #         loc: storage.cuda()
+    #     )
+    #     new_dict = {}
+    #     for k in checkpoint['state_dict']:
+    #         if 'module.' in k:
+    #             new_k = k.replace('module.', '')
+    #             new_dict[new_k] = checkpoint['state_dict'][k]
+    #     if len(new_dict.keys())==0:
+    #         new_dict=checkpoint['state_dict']
+    #     model.load_state_dict(new_dict,strict=False)
+    #     model.load_state_dict(checkpoint['state_dict'])
+    #     optimizer.load_state_dict(checkpoint['optimizer'])
+    #     scheduler.load_state_dict(checkpoint['scheduler'])
+    #     start_epoch = checkpoint['epoch']
+    #     if is_main_process():
+    #         print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
+    #               "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
-    if os.path.isfile(cfg.train.vl_pretrain_weight):
-        checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda() )
-        new_dict = {}
-        for k in checkpoint['state_dict']:
-            if 'module.' in k:
-                new_k = k.replace('module.', '')
-                new_dict[new_k] = checkpoint['state_dict'][k]
-        if len(new_dict.keys())==0:
-            new_dict=checkpoint['state_dict']
-        model.load_state_dict(new_dict,strict=False)
-        start_epoch = 0
-        if is_main_process():
-            print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
-                  "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
+    # if os.path.isfile(cfg.train.vl_pretrain_weight):
+    #     checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda() )
+    #     new_dict = {}
+    #     for k in checkpoint['state_dict']:
+    #         if 'module.' in k:
+    #             new_k = k.replace('module.', '')
+    #             new_dict[new_k] = checkpoint['state_dict'][k]
+    #     if len(new_dict.keys())==0:
+    #         new_dict=checkpoint['state_dict']
+    #     model.load_state_dict(new_dict,strict=False)
+    #     start_epoch = 0
+    #     if is_main_process():
+    #         print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
+    #               "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
 
 
@@ -221,32 +225,46 @@ def main(cfg):
 
     save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if cfg.train.log_image else None
 
-    for ith_epoch in range(start_epoch, cfg.train.epochs):
+    for epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.ema.enabled and ema is None:
             ema = EMA(model, 0.9997)
-        train_one_epoch(cfg, model, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,dist.get_rank(),ema)
-        box_ap,mask_ap=validate(cfg, model, val_loader, writer,ith_epoch,dist.get_rank(),val_set.ix_to_token,save_ids=save_ids,ema=ema)
-
+        train_one_epoch(cfg, model, optimizer, scheduler, train_loader, scalar, writer,epoch, dist.get_rank(), ema)
+        box_ap, mask_ap=validate(cfg, model, val_loader, writer,epoch, dist.get_rank(), val_set.ix_to_token, save_ids=save_ids, ema=ema)
+        
+        # save checkpoints
         if is_main_process():
             if ema is not None:
                 ema.apply_shadow()
-            torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                        'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                       os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'last.pth'))
-            if box_ap>best_det_acc:
-                best_det_acc=box_ap
-                torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                            'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                           os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'det_best.pth'))
+            # periodically save checkpoint
+            save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger)
+            # save best checkpoint
+            if box_ap > best_det_acc:
+                save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, det_best=True)
             if mask_ap > best_seg_acc:
-                best_seg_acc=mask_ap
-                torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                            'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-                           os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'seg_best.pth'))
+                save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, seg_best=True)
             if ema is not None:
                 ema.restore()
 
     cleanup_distributed()
+
+        # if is_main_process():
+        #     if ema is not None:
+        #         ema.apply_shadow()
+        #     torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
+        #                 'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
+        #                os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'last.pth'))
+        #     if box_ap>best_det_acc:
+        #         best_det_acc=box_ap
+        #         torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
+        #                     'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
+        #                    os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'det_best.pth'))
+        #     if mask_ap > best_seg_acc:
+        #         best_seg_acc=mask_ap
+        #         torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
+        #                     'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
+        #                    os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'seg_best.pth'))
+        #     if ema is not None:
+        #         ema.restore()
 
 
 if __name__ == '__main__':
@@ -268,7 +286,6 @@ if __name__ == '__main__':
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
 
     # Environments setting
-    setup_unique_version(cfg)
     seed_everything(cfg.train.seed)
 
     # Distributed setting
