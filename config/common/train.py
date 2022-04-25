@@ -12,6 +12,7 @@ train = dict(
     min_lr=1e-6,
     batch_size=8,
     log_period=1,
+    save_period=1,
     data=dict(pin_memory=True, num_workers=8),
     scheduler=dict(
         name="cosine",
