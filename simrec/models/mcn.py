@@ -18,7 +18,7 @@ import torch.nn as nn
 from simrec.models.heads.mcn_heads import MCNhead
 from simrec.models.backbones.build import build_visual_encoder
 from simrec.models.language_encoders.build import build_language_encoder
-from simrec.layers.fusion_layer import SimpleFusion,MultiScaleFusion,GaranAttention
+from simrec.layers.fusion_layer import SimpleFusion, MultiScaleFusion, GaranAttention
 
 
 class MCN(nn.Module):

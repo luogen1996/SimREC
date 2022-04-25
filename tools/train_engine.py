@@ -21,7 +21,7 @@ from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_dis
 from simrec.utils.env import seed_everything
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
-from simrec.utils.checkpoint import save_checkpoint
+from simrec.utils.checkpoint import save_checkpoint, load_checkpoint, auto_resume_helper
 
 from tools.eval_engine import validate
 
@@ -165,50 +165,31 @@ def main(cfg):
         logger.info("Number of all params: %.2fM" % (total_params / 1e6))
         logger.info("Number of trainable params: %.2fM" % (trainable_params / 1e6))
 
-    cfg.train.scheduler.epochs = cfg.train.epochs
-    cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
-    scheduler = build_lr_scheduler(cfg.train.scheduler, optimizer)
+    scheduler = build_lr_scheduler(cfg, optimizer, len(train_loader))
 
     start_epoch = 0
 
-    # if os.path.isfile(cfg.train.resume_path):
-    #     checkpoint = torch.load(
-    #         cfg.train.resume_path, 
-    #         map_location=lambda storage, 
-    #         loc: storage.cuda()
-    #     )
-    #     new_dict = {}
-    #     for k in checkpoint['state_dict']:
-    #         if 'module.' in k:
-    #             new_k = k.replace('module.', '')
-    #             new_dict[new_k] = checkpoint['state_dict'][k]
-    #     if len(new_dict.keys())==0:
-    #         new_dict=checkpoint['state_dict']
-    #     model.load_state_dict(new_dict,strict=False)
-    #     model.load_state_dict(checkpoint['state_dict'])
-    #     optimizer.load_state_dict(checkpoint['optimizer'])
-    #     scheduler.load_state_dict(checkpoint['scheduler'])
-    #     start_epoch = checkpoint['epoch']
-    #     if is_main_process():
-    #         print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
-    #               "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
+    if cfg.train.auto_resume.enabled:
+        resume_file = auto_resume_helper(cfg.train.output_dir)
+        if resume_file:
+            if cfg.train.resume_path:
+                logger.warning(f"auto-resume changing resume file from {cfg.train.resume_path} to {resume_file}")
+                cfg.train.resume_path = resume_file
+                logger.info(f'auto resuming from {resume_file}')
+        else:
+            logger.info(f'no checkpoint found in {cfg.train.output_dir}, ignoring auto resume')
 
-    # if os.path.isfile(cfg.train.vl_pretrain_weight):
-    #     checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda() )
-    #     new_dict = {}
-    #     for k in checkpoint['state_dict']:
-    #         if 'module.' in k:
-    #             new_k = k.replace('module.', '')
-    #             new_dict[new_k] = checkpoint['state_dict'][k]
-    #     if len(new_dict.keys())==0:
-    #         new_dict=checkpoint['state_dict']
-    #     model.load_state_dict(new_dict,strict=False)
-    #     start_epoch = 0
-    #     if is_main_process():
-    #         print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
-    #               "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
+    if cfg.train.resume_path:
+        start_epoch = load_checkpoint(cfg, model_without_ddp, optimizer, scheduler, logger)
 
-
+    if os.path.isfile(cfg.train.vl_pretrain_weight):
+        checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda())
+        logger.warning("loading pretrained weight for finetuning, ignoring resume training, reset start epoch to 0")
+        msg = model_without_ddp.load_state_dict(checkpoint['state_dict'], strict=False)
+        logger.info(msg)
+        start_epoch = 0
+        logger.info("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
+                    "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
     if cfg.train.amp.enabled:
         assert torch.__version__ >= '1.6.0', \

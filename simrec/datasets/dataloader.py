@@ -31,8 +31,8 @@ def build_loader(cfg, dataset: torch.utils.data.Dataset, rank: int, shuffle=True
                             dataset,
                             batch_size=cfg.train.batch_size,
                             sampler=dist_sampler,
-                            num_workers=cfg.train.num_workers,
-                            pin_memory=True,
+                            num_workers=cfg.train.data.num_workers,
+                            pin_memory=cfg.train.data.pin_memory,
                             drop_last=drop_last
                         )
     return data_loader

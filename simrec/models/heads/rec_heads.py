@@ -33,7 +33,6 @@ class BaseConv(nn.Module):
         super().__init__()
         # same padding
         pad = (ksize - 1) // 2
-        print(in_channels,out_channels,ksize,stride)
         self.conv = nn.Conv2d(
             in_channels,
             out_channels,
