@@ -108,9 +108,9 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
                 f'Seg Loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})  '
                 f'Mem {memory_used:.0f}MB')
         
-        # break
         batch_time.update(time.time() - end)
         end = time.time()
+        break
     
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
@@ -223,13 +223,13 @@ def main(cfg):
     else:
         writer = None
 
-    save_ids=np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if cfg.train.log_image else None
+    save_ids = np.random.randint(1, len(val_loader) * cfg.train.batch_size, 100) if cfg.train.log_image else None
 
     for epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.ema.enabled and ema is None:
             ema = EMA(model, 0.9997)
-        train_one_epoch(cfg, model, optimizer, scheduler, train_loader, scalar, writer,epoch, dist.get_rank(), ema)
-        box_ap, mask_ap=validate(cfg, model, val_loader, writer,epoch, dist.get_rank(), val_set.ix_to_token, save_ids=save_ids, ema=ema)
+        train_one_epoch(cfg, model, optimizer, scheduler, train_loader, scalar, writer, epoch, dist.get_rank(), ema)
+        box_ap, mask_ap = validate(cfg, model, val_loader, writer, epoch, val_set.ix_to_token, logger, dist.get_rank(), save_ids=save_ids, ema=ema)
         
         # save checkpoints
         if is_main_process():

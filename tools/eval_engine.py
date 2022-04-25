@@ -21,7 +21,7 @@ from simrec.utils.logger import create_logger
 from simrec.utils.metric import AverageMeter
 
 
-def validate(cfg, model, data_loader, writer, epoch, ix_to_token, save_ids=None, prefix='Val', ema=None):
+def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, save_ids=None, prefix='Val', ema=None):
     if ema is not None:
         ema.apply_shadow()
     model.eval()
