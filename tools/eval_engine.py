@@ -64,7 +64,7 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
             seg_iou=[]
             mask=mask.cpu().numpy()
             for i, mask_pred in enumerate(mask):
-                if writer is not None and save_ids is not None and idx * cfg.train.BATCH_SIZE+i in save_ids:
+                if writer is not None and save_ids is not None and idx * cfg.train.batch_size+i in save_ids:
                     ixs=ref_iter[i].cpu().numpy()
                     words=[]
                     for ix in ixs:

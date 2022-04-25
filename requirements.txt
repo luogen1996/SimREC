@@ -3,6 +3,7 @@ torchvision
 numpy
 opencv-python
 spacy
+tensorboard
 tensorboardX
 albumentations
 pillow

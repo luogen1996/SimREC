@@ -10,7 +10,7 @@ from simrec.layers.fusion_layer import SimpleFusion, MultiScaleFusion, GaranAtte
 model = LazyCall(SimREC)(
     visual_backbone=LazyCall(CspDarkNet)(
         pretrained=False,
-        pretrained_weight_path="./cspdarknet_coco.pth",
+        pretrained_weight_path="./data/weights/cspdarknet_coco.pth",
         freeze_backbone=True,
         multi_scale_outputs=True,
     ),

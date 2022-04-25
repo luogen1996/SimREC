@@ -1,7 +1,4 @@
-import random
-
-from simrec.config import LazyCall
-from simrec.scheduler.lr_scheduler import WarmupCosineLR
+# Basic training-related configs 
 
 train = dict(
     output_dir = "./test",
