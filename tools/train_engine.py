@@ -20,8 +20,7 @@ from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
 
-
-from test import validate
+from tools.eval_engine import validate
 
 
 def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, writer, epoch, rank, ema=None):
