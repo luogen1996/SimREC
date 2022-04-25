@@ -27,7 +27,16 @@ class ResNet18(nn.Module):
         super().__init__()
         self.multi_scale_outputs=multi_scale_outputs
         self.resnet=resnet18(pretrained=pretrained)
-    
+
+        if freeze_backbone:
+            self.frozen()
+
+    def frozen(self):
+        for module in self.modules():
+            for name, param in module.named_parameters():
+                param.requires_grad=False
+
+
     def forward(self, x):
         x=self.resnet.conv1(x)
         x=self.resnet.bn1(x)
@@ -52,6 +61,14 @@ class ResNet34(nn.Module):
         self.multi_scale_outputs=multi_scale_outputs
         self.resnet=resnet34(pretrained=pretrained)
     
+        if freeze_backbone:
+            self.frozen()
+
+    def frozen(self):
+        for module in self.modules():
+            for name, param in module.named_parameters():
+                param.requires_grad=False
+
     def forward(self, x):
         x=self.resnet.conv1(x)
         x=self.resnet.bn1(x)
@@ -75,7 +92,15 @@ class ResNet101(nn.Module):
         super().__init__()
         self.multi_scale_outputs=multi_scale_outputs
         self.resnet=resnet101(pretrained=pretrained)
-    
+
+        if freeze_backbone:
+            self.frozen()
+
+    def frozen(self):
+        for module in self.modules():
+            for name, param in module.named_parameters():
+                param.requires_grad=False
+
     def forward(self, x):
         x=self.resnet.conv1(x)
         x=self.resnet.bn1(x)
