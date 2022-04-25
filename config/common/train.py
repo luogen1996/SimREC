@@ -24,6 +24,7 @@ train = dict(
         init_method="env://",
     ),
     ema=dict(enabled=True, alpha=0.9997, buffer_ema=True),
+    clip_grad_norm=0.15,
     auto_resume=dict(enabled=True),
     resume_path="",
     vl_pretrain_weight="",
@@ -33,7 +34,6 @@ train = dict(
                     [384,384],[416,416],[448,448],[480,480],[512,512],
                     [544,544],[576,576],[608,608]]
     ),
-    clip_grad_norm=0.15,
     log_image=False,
     seed = 123456,
 )

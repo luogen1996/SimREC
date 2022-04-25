@@ -193,6 +193,7 @@ def main(cfg):
 
     torch.cuda.set_device(dist.get_rank())
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
+    model_without_ddp = model.module
 
     if is_main_process():
         total_params = sum([param.nelement() for param in model.parameters()])
@@ -202,15 +203,9 @@ def main(cfg):
         logger.info("Number of trainable params: %.2fM" % (trainable_params / 1e6))
 
 
-    if os.path.isfile(cfg.train.resume_path):
-        checkpoint = torch.load(cfg.train.resume_path, map_location=lambda storage, loc: storage.cuda() )
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        # scheduler.load_state_dict(checkpoint['scheduler'])
-        start_epoch = checkpoint['epoch']
-        if is_main_process():
-            print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
-                  "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
+    checkpoint = torch.load(cfg.train.resume_path, map_location=lambda storage, loc: storage.cuda() )
+    model_without_ddp.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
 
     if cfg.train.amp:
         assert torch.__version__ >= '1.6.0', \
@@ -233,6 +228,8 @@ def main(cfg):
             writer=writer, 
             epoch=0, 
             ix_to_token=val_set.ix_to_token,
+            logger=logger,
+            rank=dist.get_rank(),
             save_ids=save_ids,
             prefix=prefix)
         logger.info(f' * BoxIoU@0.5 {box_ap:.3f} MaskIoU {mask_ap:.3f}')
@@ -258,7 +255,6 @@ if __name__ == '__main__':
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
 
     # Environments setting
-    setup_unique_version(cfg)
     seed_everything(cfg.train.seed)
 
     # Distributed setting
@@ -284,9 +280,9 @@ if __name__ == '__main__':
     os.makedirs(output_dir, exist_ok=True)
     logger = create_logger(output_dir=cfg.train.output_dir, dist_rank=dist.get_rank())
 
-    # Logger setting
-    if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
-        os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'), exist_ok=True)
+    # Refine cfg for evaluation
+    cfg.train.resume_path = args.eval_weights
+    logger.info(f"Running evaluation from specific checkpoint {cfg.train.resume_path}......")
 
     if is_main_process():
         path = os.path.join(cfg.train.output_dir, "config.yaml")

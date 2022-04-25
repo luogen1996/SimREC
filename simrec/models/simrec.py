@@ -36,23 +36,11 @@ class SimREC(nn.Module):
         super(SimREC, self).__init__()
         self.visual_encoder=visual_backbone
         self.lang_encoder=language_encoder
-        # self.multi_scale_manner = MultiScaleFusion(v_planes=(512, 512, hidden_size), scaled=True)
         self.multi_scale_manner = multi_scale_manner
-        # self.fusion_manner=nn.ModuleList(
-        #     [
-        #         SimpleFusion(v_planes=256, out_planes=512, q_planes=512),
-        #         SimpleFusion(v_planes=512, out_planes=512, q_planes=512),
-        #         SimpleFusion(v_planes=1024, out_planes=512, q_planes=512)
-        #     ]
-        # )
         self.fusion_manner = fusion_manner
-        # self.attention_manner=GaranAttention(512,512)
         self.attention_manner = attention_manner
         self.head=head
         
-        total = sum([param.nelement() for param in self.lang_encoder.parameters()])
-        print('  + Number of lang enc params: %.2fM' % (total / 1e6))
-
     
     def frozen(self,module):
         if getattr(module,'module',False):

@@ -75,9 +75,15 @@ def synchronize():
         dist.barrier()
 
 
-
 def cleanup_distributed():
     dist.destroy_process_group()
+
+
+def reduce_tensor(tensor):
+    rt = tensor.clone()
+    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
+    rt /= dist.get_world_size()
+    return rt
 
 
 def reduce_meters(meters, rank, cfg):
@@ -93,6 +99,7 @@ def reduce_meters(meters, rank, cfg):
         if is_main_process():
             value = torch.mean(torch.cat(avg_reduce)).item()
             meter.update_reduce(value)
+
 
 def find_free_port():
     import socket
