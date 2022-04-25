@@ -165,9 +165,7 @@ def main(cfg):
         logger.info("Number of all params: %.2fM" % (total_params / 1e6))
         logger.info("Number of trainable params: %.2fM" % (trainable_params / 1e6))
 
-    cfg.train.scheduler.epochs = cfg.train.epochs
-    cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
-    scheduler = build_lr_scheduler(cfg.train.scheduler, optimizer)
+    scheduler = build_lr_scheduler(cfg, optimizer, len(train_loader))
 
     start_epoch = 0
 
