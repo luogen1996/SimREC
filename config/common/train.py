@@ -4,25 +4,19 @@ from simrec.config import LazyCall
 from simrec.scheduler.lr_scheduler import WarmupCosineLR
 
 train = dict(
-    train_batch_size = 4,
-    test_batch_size = 4,
-    num_workers = 8,
+    batch_size=8,
+    num_workers=8,
     amp=dict(enabled=False),
     ddp=dict(
         backend="nccl",
         init_method="env://",
     ),
-    ema=dict(enabled=True),
+    ema=dict(enabled=True, alpha=0.9997, buffer_ema=True),
     epochs = 25,
-    output_dir = "./output",
-    log_period = 100,
-    version = random.randint(0, 99999),
-    log_path = "./logs/det_base_refcoco_baseline",
-    resume_path = "",
-    batch_size = 4,
+    output_dir = "./test",
+    log_period = 1,
+    resume=dict(enable=False, auto_resume=True, resume_path=""),
     vl_pretrain_weight="",
-
-    print_freq = 100,
 
     scheduler = LazyCall(WarmupCosineLR)(
         # optimizer and epochs and n_iter_per_epoch will be set in train.py
@@ -38,7 +32,6 @@ train = dict(
                     [384,384],[416,416],[448,448],[480,480],[512,512],
                     [544,544],[576,576],[608,608]]
     ),
-
     clip_grad_norm=0.15,
     log_image = False,
     seed = 123456,

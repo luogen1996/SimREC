@@ -110,7 +110,6 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
         
         batch_time.update(time.time() - end)
         end = time.time()
-        break
     
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
@@ -119,7 +118,7 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
 
 def main(cfg):
     global best_det_acc, best_seg_acc
-    best_det_acc, best_seg_acc=0.,0.
+    best_det_acc, best_seg_acc = 0., 0.
 
     # build training dataset and dataloader
     cfg.dataset.split = "train"
@@ -227,7 +226,7 @@ def main(cfg):
 
     for epoch in range(start_epoch, cfg.train.epochs):
         if cfg.train.ema.enabled and ema is None:
-            ema = EMA(model, 0.9997)
+            ema = EMA(model, cfg.train.ema.alpha, cfg.train.ema.buffer_ema)
         train_one_epoch(cfg, model, optimizer, scheduler, train_loader, scalar, writer, epoch, dist.get_rank(), ema)
         box_ap, mask_ap = validate(cfg, model, val_loader, writer, epoch, val_set.ix_to_token, logger, dist.get_rank(), save_ids=save_ids, ema=ema)
         
@@ -246,25 +245,6 @@ def main(cfg):
                 ema.restore()
 
     cleanup_distributed()
-
-        # if is_main_process():
-        #     if ema is not None:
-        #         ema.apply_shadow()
-        #     torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-        #                 'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-        #                os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'last.pth'))
-        #     if box_ap>best_det_acc:
-        #         best_det_acc=box_ap
-        #         torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-        #                     'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-        #                    os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'det_best.pth'))
-        #     if mask_ap > best_seg_acc:
-        #         best_seg_acc=mask_ap
-        #         torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-        #                     'scheduler': scheduler.state_dict(),'lr':optimizer.param_groups[0]["lr"],},
-        #                    os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt', 'seg_best.pth'))
-        #     if ema is not None:
-        #         ema.restore()
 
 
 if __name__ == '__main__':
@@ -310,10 +290,6 @@ if __name__ == '__main__':
     output_dir = cfg.train.output_dir
     os.makedirs(output_dir, exist_ok=True)
     logger = create_logger(output_dir=cfg.train.output_dir, dist_rank=dist.get_rank())
-
-    # Logger setting
-    if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
-        os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'), exist_ok=True)
 
     if is_main_process():
         path = os.path.join(cfg.train.output_dir, "config.yaml")

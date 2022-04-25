@@ -75,18 +75,6 @@ def synchronize():
         dist.barrier()
 
 
-def setup_distributed(cfg, rank: int, backend: str = 'NCCL'):
-    if not dist.is_available():
-        raise ModuleNotFoundError('torch.distributed package not found')
-
-    if cfg.train.ddp.world_size > len(cfg.train.gpus):
-        assert '127.0.0.1' not in cfg.train.ddp.dist_url, "DIST_URL is illegal with multi nodes distributed training"
-
-    dist.init_process_group(dist.Backend(backend), rank=rank, world_size=cfg.train.ddp.world_size, init_method=cfg.train.ddp.dist_url)
-
-    if not dist.is_initialized():
-        raise ValueError('init_process_group failed')
-
 
 def cleanup_distributed():
     dist.destroy_process_group()

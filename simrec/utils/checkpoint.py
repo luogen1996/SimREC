@@ -82,24 +82,21 @@ def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=Fa
         'scheduler': scheduler.state_dict(),
         'lr': optimizer.param_groups[0]["lr"]
     }
+    logger.info(f"saving checkpoints......")
     save_path = os.path.join(cfg.train.output_dir, f'ckpt_epoch_{epoch}.pth')
+    torch.save(save_state, save_path)
+
+    # save last checkpoint
     last_checkpoint_path = os.path.join(cfg.train.output_dir, f'last_checkpoint.pth')
-    logger.info(f"{save_path} saving......")
-    torch.save(save_state, save_path)
-    logger.info(f"{save_path} saved !!!")
+    torch.save(save_state, last_checkpoint_path)
 
-    logger.info(f"{last_checkpoint_path} saving......")
-    torch.save(save_state, save_path)
-    logger.info(f"{last_checkpoint_path} saved !!!")
-
+    # save best detection model
     if det_best:
-        save_path = os.path.join(cfg.train.output_dir, f'det_best_model.pth')
-        logger.info(f"{save_path} saving......")
-        torch.save(save_state, save_path)
-        logger.info(f"{save_path} saved !!!")
+        det_best_model_path = os.path.join(cfg.train.output_dir, f'det_best_model.pth')
+        torch.save(save_state, det_best_model_path)
     
+    # save best segmentation model
     if seg_best:
-        save_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
-        logger.info(f"{save_path} saving......")
-        torch.save(save_state, save_path)
-        logger.info(f"{save_path} saved !!!")
+        seg_best_model_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
+        torch.save(save_state, seg_best_model_path)
+    logger.info(f"checkpoints saved !!!")
