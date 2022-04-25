@@ -6,6 +6,8 @@ from simrec.config import LazyCall
 from simrec.datasets.dataset import RefCOCODataSet
 from simrec.datasets.transforms.randaug import RandAugment
 
+from .train import train
+
 dataset = LazyCall(RefCOCODataSet)(
     dataset = "refcoco",
     ann_path = {
@@ -38,8 +40,8 @@ dataset = LazyCall(RefCOCODataSet)(
         transforms = [
             LazyCall(transforms.ToTensor)(),
             LazyCall(transforms.Normalize)(
-                mean=[0., 0., 0.], 
-                std=[1., 1., 1.]
+                mean=train.data.mean, 
+                std=train.data.std,
             )
         ]
     ),

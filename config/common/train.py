@@ -13,7 +13,12 @@ train = dict(
     batch_size=8,
     log_period=1,
     save_period=1,
-    data=dict(pin_memory=True, num_workers=8),
+    data=dict(
+        pin_memory=True, 
+        num_workers=8,
+        mean=[0., 0., 0.],
+        std=[1., 1., 1.],
+    ),
     scheduler=dict(
         name="cosine",
         decay_epochs=[30, 35, 37],
