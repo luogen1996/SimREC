@@ -182,22 +182,14 @@ def main(cfg):
     if cfg.train.resume_path:
         start_epoch = load_checkpoint(cfg, model_without_ddp, optimizer, scheduler, logger)
 
-    # if os.path.isfile(cfg.train.vl_pretrain_weight):
-    #     checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda() )
-    #     new_dict = {}
-    #     for k in checkpoint['state_dict']:
-    #         if 'module.' in k:
-    #             new_k = k.replace('module.', '')
-    #             new_dict[new_k] = checkpoint['state_dict'][k]
-    #     if len(new_dict.keys())==0:
-    #         new_dict=checkpoint['state_dict']
-    #     model.load_state_dict(new_dict,strict=False)
-    #     start_epoch = 0
-    #     if is_main_process():
-    #         print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
-    #               "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
-
-
+    if os.path.isfile(cfg.train.vl_pretrain_weight):
+        checkpoint = torch.load(cfg.train.vl_pretrain_weight, map_location=lambda storage, loc: storage.cuda())
+        logger.warning("loading pretrained weight for finetuning, ignoring resume training, reset start epoch to 0")
+        msg = model_without_ddp.load_state_dict(checkpoint['state_dict'], strict=False)
+        logger.info(msg)
+        start_epoch = 0
+        logger.info("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
+                    "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
     if cfg.train.amp.enabled:
         assert torch.__version__ >= '1.6.0', \
