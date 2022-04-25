@@ -90,7 +90,6 @@ class GaranAttention(nn.Module):
 
         sz_b, c_q = q.size()
         sz_b,c_v, h_v,w_v = v.size()
-        # print(v.size())
         residual = v
 
         q = self.w_qs(q)
@@ -200,7 +199,6 @@ class GaranAttentionV2(nn.Module):
 
         sz_b, l,c_q = q.size()
         sz_b,c_v, h_v,w_v = v.size()
-        # print(v.size())
         residual = v
 
         q = self.w_qs(q)
@@ -301,7 +299,6 @@ class MultiScaleFusion(nn.Module):
 
     def forward(self, x):
         l,m,s=x
-        # print(s)
         m = torch.cat([self.up_modules[1](s), m], 1)
         l = torch.cat([self.up_modules[0](m), l], 1)
         # out=self.out_proj(l)
@@ -367,7 +364,6 @@ class MultiScaleFusion_(nn.Module):
 
     def forward(self, x):
         ll,l, m, s = x
-        # print(s)
         m = torch.cat([self.up_modules[1](s), m], 1)
         l = torch.cat([self.up_modules[0](m), l], 1)
         ll = torch.cat([self.up_modules[2](l), ll], 1)
@@ -402,7 +398,6 @@ class AdaptiveFeatureSelection(nn.Module):
         visuals=input[1]
         v_len=len(visuals)
 
-        # print(self.afs_modules)
         for i in range(v_len):
             visuals[i]=self.afs_modules[i](visuals[i]).unsqueeze(-1)
         v_size=visuals[0].size()
@@ -440,11 +435,3 @@ class FeatureNormalize(nn.Module):
         x=self.act2(x)
         return x
 
-
-
-
-if __name__ == '__main__':
-    x=[torch.rand(1,256,32,32),torch.rand(1,512,16,16),torch.rand(1,1024,8,8)]
-    x=MultiScaleFusion()(x)
-    for _ in x:
-        print(_.size())

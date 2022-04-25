@@ -75,10 +75,6 @@ def synchronize():
         dist.barrier()
 
 
-def main_process(rank):
-    return rank==0
-
-
 def setup_distributed(cfg, rank: int, backend: str = 'NCCL'):
     if not dist.is_available():
         raise ModuleNotFoundError('torch.distributed package not found')

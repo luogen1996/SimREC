@@ -14,8 +14,8 @@ from torch.nn.parallel import DistributedDataParallel
 from simrec.config import LazyConfig, instantiate
 from simrec.datasets.dataloader import build_loader
 from simrec.scheduler.build import build_lr_scheduler
-from simrec.utils.metric import AverageMeter, ProgressMeter
-from simrec.utils.distributed import reduce_meters, main_process, cleanup_distributed
+from simrec.utils.metric import AverageMeter
+from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
 from simrec.utils.env import seed_everything, setup_unique_version
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
@@ -31,9 +31,9 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
     num_iters = len(data_loader)
     batch_time = AverageMeter('Time', ':6.5f')
     data_time = AverageMeter('Data', ':6.5f')
-    losses = AverageMeter('Loss', ':.7f')
-    losses_det = AverageMeter('LossDet', ':.7f')
-    losses_seg = AverageMeter('LossSeg', ':.7f')
+    losses = AverageMeter('Loss', ':.4f')
+    losses_det = AverageMeter('LossDet', ':.4f')
+    losses_seg = AverageMeter('LossSeg', ':.4f')
     meters = [batch_time, data_time, losses, losses_det, losses_seg]
     meters_dict = {meter.name: meter for meter in meters}
     
@@ -45,7 +45,7 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
         ref_iter = ref_iter.cuda(non_blocking=True)
         image_iter = image_iter.cuda(non_blocking=True)
         mask_iter = mask_iter.cuda(non_blocking=True)
-        box_iter = box_iter.cuda( non_blocking=True)
+        box_iter = box_iter.cuda(non_blocking=True)
 
         if cfg.train.multi_scale_training:
             img_scales = cfg.train.multi_scale_training.img_scales
@@ -71,8 +71,6 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
             scalar.update()
         else:
             loss.backward()
-            # for p in list(filter(lambda p: p.grad is not None, net.parameters())):
-            #     print(p.grad.data)
             if cfg.train.clip_grad_norm > 0:
                 nn.utils.clip_grad_norm_(
                     model.parameters(),
@@ -89,25 +87,24 @@ def train_one_epoch(cfg, model, optimizer, scheduler, data_loader, scalar, write
         losses_seg.update(loss_seg.item(), image_iter.size(0))
 
         reduce_meters(meters_dict, rank, cfg)
-        if dist.get_rank() == 0:
+        if is_main_process():
             global_step = epoch * num_iters + idx
             writer.add_scalar("loss/train", losses.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_det/train", losses_det.avg_reduce, global_step=global_step)
             writer.add_scalar("loss_seg/train", losses_seg.avg_reduce, global_step=global_step)
         
         if idx % cfg.train.log_period == 0 or idx==len(data_loader):
-            # progress.display(epoch, ith_batch)
             lr = optimizer.param_groups[0]['lr']
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_iters - idx)
             logger.info(
                 f'Train: [{epoch}/{cfg.train.epochs}][{idx}/{num_iters}]  '
                 f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.7f}  '
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})  '
-                f'loss {losses.val:.4f} ({losses.avg:.4f})  '
-                f'det loss {losses_det.val:.4f} ({losses_det.avg:.4f})  '
-                f'seg loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})  '
-                f'mem {memory_used:.0f}MB')
+                f'Time {batch_time.val:.4f} ({batch_time.avg:.4f})  '
+                f'Loss {losses.val:.4f} ({losses.avg:.4f})  '
+                f'Det Loss {losses_det.val:.4f} ({losses_det.avg:.4f})  '
+                f'Seg Loss {losses_seg.val:.4f} ({losses_seg.avg:.4f})  '
+                f'Mem {memory_used:.0f}MB')
         
         # break
         batch_time.update(time.time() - end)
@@ -159,17 +156,12 @@ def main(cfg):
     torch.cuda.set_device(dist.get_rank())
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
 
-
-    # if main_process(dist.get_rank()):
-    #     print(cfg)
-    #     print(net)
-    #     total = sum([param.nelement() for param in net.parameters()])
-    #     print('  + Number of all params: %.2fM' % (total / 1e6))
-    #     total = sum([param.nelement() for param in net.parameters() if param.requires_grad])
-    #     print('  + Number of trainable params: %.2fM' % (total / 1e6))
-
-    if dist.get_rank() == 0:
+    if is_main_process():
+        total_params = sum([param.nelement() for param in model.parameters()])
+        trainable_params = sum([param.nelement() for param in model.parameters() if param.requires_grad])
         logger.info(str(model))
+        logger.info("Number of all params: %.2fM" % (total_params / 1e6))
+        logger.info("Number of trainable params: %.2fM" % (trainable_params / 1e6))
 
     cfg.train.scheduler.epochs = cfg.train.epochs
     cfg.train.scheduler.n_iter_per_epoch = len(train_loader)
@@ -195,7 +187,7 @@ def main(cfg):
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         start_epoch = checkpoint['epoch']
-        if main_process(dist.get_rank()):
+        if is_main_process():
             print("==> loaded checkpoint from {}\n".format(cfg.train.resume_path) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'],checkpoint['lr']))
 
@@ -210,7 +202,7 @@ def main(cfg):
             new_dict=checkpoint['state_dict']
         model.load_state_dict(new_dict,strict=False)
         start_epoch = 0
-        if main_process(dist.get_rank()):
+        if is_main_process():
             print("==> loaded checkpoint from {}\n".format(cfg.train.vl_pretrain_weight) +
                   "==> epoch: {} lr: {} ".format(checkpoint['epoch'], checkpoint['lr']))
 
@@ -223,8 +215,8 @@ def main(cfg):
     else:
         scalar = None
 
-    if main_process(dist.get_rank()):
-        writer = SummaryWriter(log_dir=os.path.join(cfg.train.log_path, str(cfg.train.version)))
+    if is_main_process():
+        writer = SummaryWriter(log_dir=cfg.train.output_dir)
     else:
         writer = None
 
@@ -236,7 +228,7 @@ def main(cfg):
         train_one_epoch(cfg, model, optimizer,scheduler,train_loader,scalar,writer,ith_epoch,dist.get_rank(),ema)
         box_ap,mask_ap=validate(cfg, model, val_loader, writer,ith_epoch,dist.get_rank(),val_set.ix_to_token,save_ids=save_ids,ema=ema)
 
-        if main_process(dist.get_rank()):
+        if is_main_process():
             if ema is not None:
                 ema.apply_shadow()
             torch.save({'epoch': ith_epoch + 1, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
@@ -307,7 +299,7 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join(cfg.train.log_path, str(cfg.train.version))):
         os.makedirs(os.path.join(cfg.train.log_path, str(cfg.train.version),'ckpt'), exist_ok=True)
 
-    if dist.get_rank() == 0:
+    if is_main_process():
         path = os.path.join(cfg.train.output_dir, "config.yaml")
         LazyConfig.save(cfg, path)
 

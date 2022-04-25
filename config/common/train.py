@@ -4,12 +4,13 @@ from simrec.config import LazyCall
 from simrec.scheduler.lr_scheduler import WarmupCosineLR
 
 train = dict(
+    train_batch_size = 4,
+    test_batch_size = 4,
     num_workers = 8,
     amp=dict(enabled=False),
     ddp=dict(
         backend="nccl",
         init_method="env://",
-        rank=0
     ),
     ema=dict(enabled=True),
     epochs = 25,
