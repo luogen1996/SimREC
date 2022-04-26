@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 
 from simrec.layers.blocks import ConvBnAct, C3Block
+from simrec.layers.sppf import SPPF
 
 class CspDarkNet(nn.Module):
     def __init__(
@@ -46,7 +47,7 @@ class CspDarkNet(nn.Module):
             # i = 7 ch =[64,128,128,256,256,512,512,1024]
             C3Block(c1=1024, c2=1024, n=3),
             # i = 8 ch =[64,128,128,256,256,512,512,1024,1024]
-            ConvBnAct(c1=1024, c2=1024,k=5),
+            SPPF(c1=1024, c2=1024, k=5),
             # i = 9 ch =[64,128,128,256,256,512,512,1024,1024,1024]
         )
         

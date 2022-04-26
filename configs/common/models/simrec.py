@@ -15,7 +15,7 @@ model = LazyCall(SimREC)(
         multi_scale_outputs=True,
     ),
     language_encoder=LazyCall(LSTM_SA)(
-        depth=6,
+        depth=1,
         hidden_size=512,
         num_heads=8,
         ffn_size=2048,
