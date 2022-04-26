@@ -55,7 +55,57 @@ python test.py --eval-weights ./logs/simrec/1/weights/det_best.pth
 ```
 4. Training log.  Logs are stored in ``./logs`` directory, which records the detailed training curve and accuracy per epoch. If you want to log the visualizations, please  set  ``LOG_IMAGE`` to ``True`` in ``config.yaml``.    -->
 
-1. Prepare your own configs in [configs](./configs)
+1. **Config preparation**. Prepare your own configs in [configs](./configs), you don't need to rewrite all the contents in config every time.You can import the config as a python file to use the default configs in [configs/common](./configs/common) as follows:
+
+```python
+# your own config.py
+from simrec.config import LazyCall
+from .common.dataset import dataset
+from .common.train import train
+from .common.optim import optim
+from .common.models.simrec import model
+
+# modify the config depend your own need
+dataset.ann_path["refcoco"] = "path/to/refcoco_data"
+train.output_dir = "./path/to/output_dir"
+...
+```
+
+2. **Train the model**. Run `bash/train.sh` under the [tools](./tools) to start training, for example, training `simrec` model on 4 GPUs:
+```shell
+bash tools/train.sh config/simrec_refcoco_scratch.py 4
+```
+The `training logs`, `tensorboard logs`, `config.yaml` and `model checkpoints` will be automatically saved under `cfg.train.output_dir`.
+
+3. **Resume training**. We support two resume training mode. You can resume from a specific checkpoint or resume from the latest checkpoint:
+
+- Auto resume from `last_checkpoint.pth`:
+```python
+# config.py
+from .common.train import train
+train.auto_resume.enabled = True
+```
+Setting `train.auto_resume.enabled=True`, which will automatically resume from `last_checkpoint.pth` saved in `cfg.train.output_dir`.
+
+- Resume from a specific checkpoint
+
+```python
+# config.py
+from .common.train import train
+
+# disable auto resume first
+train.auto_resume.enabled = False
+
+# modify the resume path
+train.resume_path = "path/to/specific/checkpoint.pth"
+```
+Setting `train.resume_path` to the specific `checkpoint.pth` you want to resume from.
+
+4. **Test the model.** Run `bash/eval.sh` under [tools](./tools) to evaluate the saved weight.
+
+```shell
+bash tools/eval.sh config/simrec_refcoco_scratch.py 4 /path/to/checkpoint
+```
 
 ## Model Zoo
 SimREC supports all benchmarks of REC and RES, and  can easily achieve  very competitive performance.  More results  are available  in [Model Zoo](https://github.com/luogen1996/SimREC/blob/main/MODEL_ZOO.md).
