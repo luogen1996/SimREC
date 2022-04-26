@@ -44,7 +44,7 @@ pip install en_vectors_web_lg-2.1.0.tar.gz
 
 ## Training and Evaluation 
 
-1. Prepare your settings. To train a model, you should  modify ``./config/config.yaml``  to adjust the settings  you want. 
+<!-- 1. Prepare your settings. To train a model, you should  modify ``./config/config.yaml``  to adjust the settings  you want. 
 2. Train the model. run ` train.py`  under the main folder to start training:
 ```
 python train.py --config ./config/config.yaml
@@ -53,7 +53,9 @@ python train.py --config ./config/config.yaml
 ```
 python test.py --eval-weights ./logs/simrec/1/weights/det_best.pth
 ```
-4. Training log.  Logs are stored in ``./logs`` directory, which records the detailed training curve and accuracy per epoch. If you want to log the visualizations, please  set  ``LOG_IMAGE`` to ``True`` in ``config.yaml``.   
+4. Training log.  Logs are stored in ``./logs`` directory, which records the detailed training curve and accuracy per epoch. If you want to log the visualizations, please  set  ``LOG_IMAGE`` to ``True`` in ``config.yaml``.    -->
+
+1. Prepare your own configs in [configs](./configs)
 
 ## Model Zoo
 SimREC supports all benchmarks of REC and RES, and  can easily achieve  very competitive performance.  More results  are available  in [Model Zoo](https://github.com/luogen1996/SimREC/blob/main/MODEL_ZOO.md).
@@ -117,5 +119,8 @@ year = {2020}
 ```
 ## Acknowledgement
 
- Thanks for a lot of codes from  [OpenVQA](https://github.com/MILVLG/openvqa).
+Thanks a lot for the nicely organized code from the following repos
+- [OpenVQA](https://github.com/MILVLG/openvqa).
+- [Swin-Transformer](https://github.com/microsoft/Swin-Transformer)
+- [Detectron2](https://github.com/facebookresearch/detectron2)
 
