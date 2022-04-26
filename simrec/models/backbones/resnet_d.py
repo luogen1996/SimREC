@@ -750,12 +750,19 @@ class ResNetV1c(ResNet):
         .. [1] https://arxiv.org/pdf/1812.01187.pdf
     """
 
-    def __init__(self, __C,multi_scale_outputs=True,depth=101,**kwargs):
+    def __init__(
+        self, 
+        pretrained_weight_path, 
+        pretrained=False,
+        multi_scale_outputs=True, 
+        depth=101,
+        **kwargs
+    ):
         super(ResNetV1c, self).__init__(
             deep_stem=True, avg_down=False,depth=depth, **kwargs)
-        if __C.VIS_PRETRAIN:
+        if pretrained:
             new_dict={}
-            check_point=torch.load(__C.PRETTRAIN_WEIGHT)
+            check_point=torch.load(pretrained_weight_path)
             for k in check_point['state_dict']:
                 if 'backbone' in k:
                     new_dict[k.replace('backbone.','')]=check_point['state_dict'][k]

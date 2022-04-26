@@ -212,18 +212,19 @@ def main(cfg):
         box_ap, mask_ap = validate(cfg, model, val_loader, writer, epoch, val_set.ix_to_token, logger, dist.get_rank(), save_ids=save_ids, ema=ema)
         
         # save checkpoints
-        if is_main_process():
-            if ema is not None:
-                ema.apply_shadow()
-            # periodically save checkpoint
-            save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger)
-            # save best checkpoint
-            if box_ap > best_det_acc:
-                save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, det_best=True)
-            if mask_ap > best_seg_acc:
-                save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, seg_best=True)
-            if ema is not None:
-                ema.restore()
+        if epoch % cfg.train.save_period == 0 or epoch == (cfg.train.epochs - 1):
+            if is_main_process():
+                if ema is not None:
+                    ema.apply_shadow()
+                # periodically save checkpoint
+                save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger)
+                # save best checkpoint
+                if box_ap > best_det_acc:
+                    save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, det_best=True)
+                if mask_ap > best_seg_acc:
+                    save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, seg_best=True)
+                if ema is not None:
+                    ema.restore()
 
     cleanup_distributed()
 

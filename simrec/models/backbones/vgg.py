@@ -62,7 +62,7 @@ class VGG16(nn.Module):
         if freeze_backbone:
             self.frozen(self.module_list[:-2])
         
-    def frozen(self,module):
+    def frozen(self, module):
             if getattr(module,'module',False):
                 for child in module.module():
                     for param in child.parameters():

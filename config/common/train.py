@@ -1,7 +1,4 @@
-import random
-
-from simrec.config import LazyCall
-from simrec.scheduler.lr_scheduler import WarmupCosineLR
+# Basic training-related configs 
 
 train = dict(
     output_dir = "./test",
@@ -12,7 +9,13 @@ train = dict(
     min_lr=1e-6,
     batch_size=8,
     log_period=1,
-    data=dict(pin_memory=True, num_workers=8),
+    save_period=1,
+    data=dict(
+        pin_memory=True, 
+        num_workers=8,
+        mean=[0., 0., 0.],
+        std=[1., 1., 1.],
+    ),
     scheduler=dict(
         name="cosine",
         decay_epochs=[30, 35, 37],

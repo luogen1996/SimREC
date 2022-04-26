@@ -64,7 +64,7 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
             seg_iou=[]
             mask=mask.cpu().numpy()
             for i, mask_pred in enumerate(mask):
-                if writer is not None and save_ids is not None and idx * cfg.train.BATCH_SIZE+i in save_ids:
+                if writer is not None and save_ids is not None and idx * cfg.train.batch_size+i in save_ids:
                     ixs=ref_iter[i].cpu().numpy()
                     words=[]
                     for ix in ixs:
@@ -76,7 +76,12 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
                     box_iter[:, 1] = box_iter[:, 1] - 0.5 * box_iter[:, 3]
                     box_iter[:, 2] = box_iter[:, 0] + box_iter[:, 2]
                     box_iter[:, 3] = box_iter[:, 1] + box_iter[:, 3]
-                    det_image=draw_visualization(normed2original(image_iter[i], cfg.dataset.transforms[1].mean, cfg.dataset.transforms[1].std),sent,pred_box_vis[i].cpu().numpy(),box_iter[i].cpu().numpy())
+                    det_image = draw_visualization(
+                        image=normed2original(image_iter[i], cfg.train.data.mean, cfg.train.data.std),
+                        sent=sent,
+                        pred_box=pred_box_vis[i].cpu().numpy(),
+                        gt_box=box_iter[i].cpu().numpy()
+                    )
                     writer.add_image('image/' + str(idx * cfg.train.batch_size + i) + '_det',det_image,epoch,dataformats='HWC')
                     writer.add_image('image/' + str(idx * cfg.train.batch_size + i) + '_seg', (mask[i,None]*255).astype(np.uint8))
 
