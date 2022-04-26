@@ -16,11 +16,6 @@
 import torch
 import torch.nn as nn
 
-from simrec.models.heads.rec_heads import REChead
-from simrec.models.language_encoders.build import build_language_encoder
-from simrec.models.backbones.build import build_visual_encoder
-from simrec.layers.fusion_layer import MultiScaleFusion,SimpleFusion,GaranAttention
-
 torch.backends.cudnn.enabled=False
 
 class SimREC(nn.Module):
