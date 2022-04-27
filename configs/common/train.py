@@ -8,6 +8,10 @@ train = dict(
     warmup_lr=1e-7,
     min_lr=1e-6,
     batch_size=8,
+    evaluation=dict(
+        eval_batch_size=8, 
+        sequential=False
+    ),
     log_period=1,
     save_period=1,
     data=dict(
