@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import argparse
 import numpy as np
@@ -9,16 +8,15 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from simrec.config import instantiate, LazyConfig
-from simrec.datasets.dataloader import build_loader
+from simrec.datasets.dataloader import build_train_loader, build_test_loader
 from simrec.datasets.utils import yolobox2label
 from simrec.models.utils import batch_box_iou, mask_processing, mask_iou
-from simrec.utils.distributed import is_main_process, reduce_meters
-from simrec.utils.visualize import draw_visualization, normed2original
-from simrec.utils.env import seed_everything, setup_unique_version
+from simrec.utils.env import seed_everything
 from simrec.utils.logger import create_logger
 from simrec.utils.metric import AverageMeter
+from simrec.utils.distributed import is_main_process, reduce_meters
+from simrec.utils.visualize import draw_visualization, normed2original
 
 
 def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, save_ids=None, prefix='Val', ema=None):
@@ -148,11 +146,11 @@ def main(cfg):
     # build training dataset and dataloader
     cfg.dataset.split = "train"
     train_set = instantiate(cfg.dataset)
-    train_loader=build_loader(
+    train_loader=build_train_loader(
         cfg,
         train_set, 
-        dist.get_rank(),
-        shuffle=True
+        shuffle=True,
+        drop_last=True
     )
 
     # build single or multi-datasets for validation
@@ -160,28 +158,23 @@ def main(cfg):
     prefixs=['val']
     cfg.dataset.split = "val"
     val_set = instantiate(cfg.dataset)
-    val_loader=build_loader(
-        cfg,
-        val_set,
-        dist.get_rank(),
-        shuffle=False
-    )
+    val_loader=build_test_loader(cfg, val_set, shuffle=False, drop_last=False)
     loaders.append(val_loader)
     
     if cfg.dataset.dataset == 'refcoco' or cfg.dataset.dataset == 'refcoco+':
         cfg.dataset.split = "testA"
         testA_dataset = instantiate(cfg.dataset)
-        testA_loader = build_loader(cfg, testA_dataset, dist.get_rank(), shuffle=False)
+        testA_loader = build_test_loader(cfg, testA_dataset, shuffle=False, drop_last=False)
 
         cfg.dataset.split = "testB"
         testB_dataset = instantiate(cfg.dataset)
-        testB_loader = build_loader(cfg, testB_dataset, dist.get_rank(), shuffle=False)
+        testB_loader = build_test_loader(cfg, testB_dataset, shuffle=False, drop_last=False)
         prefixs.extend(['testA','testB'])
         loaders.extend([testA_loader,testB_loader])
     else:
         cfg.dataset.split = "test"
         test_dataset=instantiate(cfg.dataset)
-        test_loader=build_loader(cfg, test_dataset, dist.get_rank(), shuffle=False)
+        test_loader=build_test_loader(cfg, test_dataset, shuffle=False, drop_last=False)
         prefixs.append('test')
         loaders.append(test_loader)
     

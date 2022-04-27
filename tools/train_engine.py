@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import datetime
 import argparse
@@ -12,15 +11,14 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from simrec.config import LazyConfig, instantiate
-from simrec.datasets.dataloader import build_loader
+from simrec.datasets.dataloader import build_train_loader, build_test_loader
 from simrec.scheduler.build import build_lr_scheduler
-from simrec.utils.metric import AverageMeter
-from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
-from simrec.utils.env import seed_everything
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
+from simrec.utils.env import seed_everything
+from simrec.utils.metric import AverageMeter
+from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
 from simrec.utils.checkpoint import save_checkpoint, load_checkpoint, auto_resume_helper
 
 from tools.eval_engine import validate
@@ -123,10 +121,9 @@ def main(cfg):
     # build training dataset and dataloader
     cfg.dataset.split = "train"
     train_set = instantiate(cfg.dataset)
-    train_loader = build_loader(
+    train_loader = build_train_loader(
         cfg, 
         train_set, 
-        dist.get_rank(), 
         shuffle=True,
         drop_last=True
     )
@@ -134,11 +131,11 @@ def main(cfg):
     # build validation dataset and dataloader
     cfg.dataset.split = "val"
     val_set = instantiate(cfg.dataset)
-    val_loader = build_loader(
+    val_loader = build_test_loader(
         cfg, 
         val_set,
-        dist.get_rank(),
-        shuffle=False
+        shuffle=False,
+        drop_last=False,
     )
 
     # build model
