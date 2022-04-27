@@ -10,9 +10,9 @@ dataset.image_path["refcoco"] = "/home/rentianhe/dataset/rec/images/train2014"
 dataset.mask_path["refcoco"] = "/home/rentianhe/dataset/rec/masks/refcoco"
 
 # # Refine training cfg
-train.output_dir = "./output/det_base_refcoco_baseline"
+train.output_dir = "./output/test_batch_size"
 train.resume_path = ""
-train.batch_size = 4
+train.batch_size = 8
 train.save_period = 2
 
 # Refine model cfg
