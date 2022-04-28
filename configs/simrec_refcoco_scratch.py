@@ -10,10 +10,12 @@ dataset.image_path["refcoco"] = "/home/rentianhe/dataset/rec/images/train2014"
 dataset.mask_path["refcoco"] = "/home/rentianhe/dataset/rec/masks/refcoco"
 
 # # Refine training cfg
-train.output_dir = "./output/test_batch_size"
-train.resume_path = ""
-train.batch_size = 8
-train.save_period = 2
+train.output_dir = "./output/test_one_gpu"
+# train.resume_path = ""
+train.batch_size = 32
+train.save_period = 1
+train.log_period = 10
+train.evaluation.eval_batch_size = 32
 
 # Refine model cfg
 model.visual_backbone.pretrained = True

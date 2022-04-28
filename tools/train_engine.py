@@ -171,8 +171,8 @@ def main(cfg):
         if resume_file:
             if cfg.train.resume_path:
                 logger.warning(f"auto-resume changing resume file from {cfg.train.resume_path} to {resume_file}")
-                cfg.train.resume_path = resume_file
-                logger.info(f'auto resuming from {resume_file}')
+            cfg.train.resume_path = resume_file
+            logger.info(f'auto resuming from {resume_file}')
         else:
             logger.info(f'no checkpoint found in {cfg.train.output_dir}, ignoring auto resume')
 
