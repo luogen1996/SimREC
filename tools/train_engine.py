@@ -210,6 +210,7 @@ def main(cfg):
         
         # save checkpoints
         if epoch % cfg.train.save_period == 0 or epoch == (cfg.train.epochs - 1):
+            logger.info(f"saving checkpoints......")
             if is_main_process():
                 if ema is not None:
                     ema.apply_shadow()
@@ -222,6 +223,7 @@ def main(cfg):
                     save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, seg_best=True)
                 if ema is not None:
                     ema.restore()
+            logger.info(f"checkpoints saved !!!")
 
     cleanup_distributed()
 

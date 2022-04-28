@@ -20,10 +20,13 @@ from torch.utils.data import DataLoader
 
 
 def build_train_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=True, drop_last=False):
-    assert dist.is_initialized()
-
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
+
+    assert cfg.train.batchsize % num_tasks == 0
+    assert dist.is_initialized()
+
+    train_micro_batch_size = cfg.train.batch_size // num_tasks
 
     train_sampler = DistributedSampler(
                                 dataset,
@@ -33,7 +36,7 @@ def build_train_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=True, dro
                                 )
     data_loader = DataLoader(
                             dataset,
-                            batch_size=cfg.train.batch_size,
+                            batch_size=train_micro_batch_size,
                             sampler=train_sampler,
                             num_workers=cfg.train.data.num_workers,
                             pin_memory=cfg.train.data.pin_memory,
@@ -43,10 +46,13 @@ def build_train_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=True, dro
 
 
 def build_test_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=False, drop_last=False):
-    assert dist.is_initialized()
-
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
+
+    assert cfg.train.eval_batchsize % num_tasks == 0
+    assert dist.is_initialized()
+
+    eval_micro_batch_size = cfg.train.evaluation.eval_batch_size // num_tasks
 
     if cfg.train.evaluation.sequential:
         eval_sampler = SequentialSampler(dataset)
@@ -60,7 +66,7 @@ def build_test_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=False, dro
     
     data_loader = DataLoader(
                             dataset,
-                            batch_size=cfg.train.evaluation.eval_batch_size,
+                            batch_size=eval_micro_batch_size,
                             sampler=eval_sampler,
                             num_workers=cfg.train.data.num_workers,
                             pin_memory=cfg.train.data.pin_memory,

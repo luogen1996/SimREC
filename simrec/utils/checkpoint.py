@@ -41,7 +41,6 @@ def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=Fa
         'scheduler': scheduler.state_dict(),
         'lr': optimizer.param_groups[0]["lr"]
     }
-    logger.info(f"saving checkpoints......")
     save_path = os.path.join(cfg.train.output_dir, f'ckpt_epoch_{epoch}.pth')
     torch.save(save_state, save_path)
 
@@ -58,7 +57,6 @@ def save_checkpoint(cfg, epoch, model, optimizer, scheduler, logger, det_best=Fa
     if seg_best:
         seg_best_model_path = os.path.join(cfg.train.output_dir, f'seg_best_model.pth')
         torch.save(save_state, seg_best_model_path)
-    logger.info(f"checkpoints saved !!!")
 
 
 def auto_resume_helper(output_dir):
