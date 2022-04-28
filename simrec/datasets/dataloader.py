@@ -55,6 +55,7 @@ def build_test_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=False, dro
     eval_micro_batch_size = cfg.train.evaluation.eval_batch_size // num_tasks
 
     if cfg.train.evaluation.sequential:
+        eval_micro_batch_size = cfg.train.evaluation.eval_batch_size
         eval_sampler = SequentialSampler(dataset)
     else:
         eval_sampler = DistributedSampler(
