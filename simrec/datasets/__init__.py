@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .dataloader import build_loader
+from .dataloader import build_train_loader, build_test_loader
 from .dataset import RefCOCODataSet
 from .transforms.mixup import Mixup
 from .transforms.randaug import RandAugment

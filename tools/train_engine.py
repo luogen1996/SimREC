@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import datetime
 import argparse
@@ -12,15 +11,14 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from simrec.config import LazyConfig, instantiate
-from simrec.datasets.dataloader import build_loader
+from simrec.datasets.dataloader import build_train_loader, build_test_loader
 from simrec.scheduler.build import build_lr_scheduler
-from simrec.utils.metric import AverageMeter
-from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
-from simrec.utils.env import seed_everything
 from simrec.utils.model_ema import EMA
 from simrec.utils.logger import create_logger
+from simrec.utils.env import seed_everything
+from simrec.utils.metric import AverageMeter
+from simrec.utils.distributed import reduce_meters, is_main_process, cleanup_distributed
 from simrec.utils.checkpoint import save_checkpoint, load_checkpoint, auto_resume_helper
 
 from tools.eval_engine import validate
@@ -123,10 +121,9 @@ def main(cfg):
     # build training dataset and dataloader
     cfg.dataset.split = "train"
     train_set = instantiate(cfg.dataset)
-    train_loader = build_loader(
+    train_loader = build_train_loader(
         cfg, 
         train_set, 
-        dist.get_rank(), 
         shuffle=True,
         drop_last=True
     )
@@ -134,11 +131,11 @@ def main(cfg):
     # build validation dataset and dataloader
     cfg.dataset.split = "val"
     val_set = instantiate(cfg.dataset)
-    val_loader = build_loader(
+    val_loader = build_test_loader(
         cfg, 
         val_set,
-        dist.get_rank(),
-        shuffle=False
+        shuffle=False,
+        drop_last=False,
     )
 
     # build model
@@ -155,6 +152,9 @@ def main(cfg):
     ema=None
 
     torch.cuda.set_device(dist.get_rank())
+    if cfg.train.sync_bn.enabled:
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        logger.info("Converted model to use Synchronized BatchNorm.")
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
     model_without_ddp = model.module
 
@@ -174,8 +174,8 @@ def main(cfg):
         if resume_file:
             if cfg.train.resume_path:
                 logger.warning(f"auto-resume changing resume file from {cfg.train.resume_path} to {resume_file}")
-                cfg.train.resume_path = resume_file
-                logger.info(f'auto resuming from {resume_file}')
+            cfg.train.resume_path = resume_file
+            logger.info(f'auto resuming from {resume_file}')
         else:
             logger.info(f'no checkpoint found in {cfg.train.output_dir}, ignoring auto resume')
 
@@ -213,6 +213,7 @@ def main(cfg):
         
         # save checkpoints
         if epoch % cfg.train.save_period == 0 or epoch == (cfg.train.epochs - 1):
+            logger.info(f"saving checkpoints......")
             if is_main_process():
                 if ema is not None:
                     ema.apply_shadow()
@@ -225,6 +226,7 @@ def main(cfg):
                     save_checkpoint(cfg, epoch, model_without_ddp, optimizer, scheduler, logger, seg_best=True)
                 if ema is not None:
                     ema.restore()
+            logger.info(f"checkpoints saved !!!")
 
     cleanup_distributed()
 

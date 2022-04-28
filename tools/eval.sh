@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export PYTHONPATH=./
 CONFIG=$1
 GPUS=$2
 EVAL_WEIGHTS=$3

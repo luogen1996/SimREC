@@ -8,6 +8,10 @@ train = dict(
     warmup_lr=1e-7,
     min_lr=1e-6,
     batch_size=8,
+    evaluation=dict(
+        eval_batch_size=8, 
+        sequential=False
+    ),
     log_period=1,
     save_period=1,
     data=dict(
@@ -27,6 +31,7 @@ train = dict(
         init_method="env://",
     ),
     ema=dict(enabled=True, alpha=0.9997, buffer_ema=True),
+    sync_bn=dict(enabled=False),
     clip_grad_norm=0.15,
     auto_resume=dict(enabled=True),
     resume_path="",

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 
@@ -26,7 +28,7 @@ class SimREC(nn.Module):
         multi_scale_manner: nn.Module,
         fusion_manner: nn.Module,
         attention_manner: nn.Module,
-        head: nn.Module, 
+        head: nn.Module,
     ):
         super(SimREC, self).__init__()
         self.visual_encoder=visual_backbone

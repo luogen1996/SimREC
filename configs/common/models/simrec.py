@@ -21,7 +21,7 @@ model = LazyCall(SimREC)(
         ffn_size=2048,
         flat_glimpses=1,
         word_embed_size=300,
-        dropout_rate=0.,
+        dropout_rate=0.1,
         # language_encoder.pretrained_emb and language.token_size is meant to be set
         # before instantiating
         freeze_embedding=True,
