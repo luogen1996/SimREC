@@ -31,7 +31,7 @@ train = dict(
         init_method="env://",
     ),
     ema=dict(enabled=True, alpha=0.9997, buffer_ema=True),
-    sync_bn=dict(enabled=True),
+    sync_bn=dict(enabled=False),
     clip_grad_norm=0.15,
     auto_resume=dict(enabled=True),
     resume_path="",
