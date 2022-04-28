@@ -23,7 +23,7 @@ def build_train_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=True, dro
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
 
-    assert cfg.train.batchsize % num_tasks == 0
+    assert cfg.train.batch_size % num_tasks == 0
     assert dist.is_initialized()
 
     train_micro_batch_size = cfg.train.batch_size // num_tasks
@@ -49,7 +49,7 @@ def build_test_loader(cfg, dataset: torch.utils.data.Dataset, shuffle=False, dro
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
 
-    assert cfg.train.eval_batchsize % num_tasks == 0
+    assert cfg.train.evaluation.eval_batch_size % num_tasks == 0
     assert dist.is_initialized()
 
     eval_micro_batch_size = cfg.train.evaluation.eval_batch_size // num_tasks

@@ -152,6 +152,9 @@ def main(cfg):
     ema=None
 
     torch.cuda.set_device(dist.get_rank())
+    if cfg.train.sync_bn.enabled:
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        logger.info("Converted model to use Synchronized BatchNorm.")
     model = DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
     model_without_ddp = model.module
 
