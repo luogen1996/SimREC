@@ -16,4 +16,3 @@ dataset.max_token_length = 15
 # Refine model cfg
 model.visual_backbone.pretrained = True
 model.visual_backbone.freeze_backbone = False
-model.visual_backbone.pretrained_weight_path = "./data/weights/cspdarknet_removal.pth"
