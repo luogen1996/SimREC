@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from simrec.layers.aspp import aspp_decoder
-from simrec.models.utils import bboxes_iou
+from ..utils.box_op import bboxes_iou
 
 
 class MCNhead(nn.Module):
