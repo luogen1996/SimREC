@@ -264,7 +264,7 @@ class SimpleFusion(nn.Module):
 
 
 class MultiScaleFusion(nn.Module):
-    def __init__(self,v_planes=[256,512,1024],hiden_planes=512,scaled=True):
+    def __init__(self,v_planes=[256,512,1024], hiden_planes=512, scaled=True):
         super().__init__()
         self.up_modules=nn.ModuleList(
             [nn.Sequential(
