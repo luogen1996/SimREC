@@ -48,7 +48,7 @@ class DarkNet53(nn.Module):
         self.multi_scale_outputs=multi_scale_outputs
         
         if pretrained:
-            parse_yolo_weights(pretrained_weight_path)
+            parse_yolo_weights(self, pretrained_weight_path)
 
         if freeze_backbone:
             self.frozen(self.module_list[:-2])
