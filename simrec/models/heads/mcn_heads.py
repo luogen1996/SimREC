@@ -20,14 +20,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from simrec.layers.aspp import aspp_decoder
-from simrec.utils.utils import bboxes_iou
+from simrec.models.utils import bboxes_iou
 
 
 class MCNhead(nn.Module):
     """
     detection layer corresponding to yolo_layer.c of darknet
     """
-    def __init__(self, __C, layer_no, in_ch, ignore_thre=0.5):
+    def __init__(
+        self, 
+        hidden_size=512, 
+        anchors=[[137, 256], [248, 272], [386, 271]], 
+        arch_mask=[[0, 1, 2]], 
+        layer_no=0, 
+        in_ch=512, 
+        n_classes=0, 
+        ignore_thre=0.5
+    ):
         """
         Args:
             config_model (dict) : model configuration.
@@ -41,15 +50,14 @@ class MCNhead(nn.Module):
         """
 
         super(MCNhead, self).__init__()
-        # strides = [32, 16, 8] # fixed
-        self.anchors = __C.ANCHORS
-        self.anch_mask = __C.ANCH_MASK[layer_no]
+        self.anchors = anchors
+        self.anch_mask = arch_mask[layer_no]
         self.n_anchors = len(self.anch_mask)
-        self.n_classes = __C.N_CLASSES
+        self.n_classes = n_classes
         self.ignore_thre = ignore_thre
         self.l2_loss = nn.MSELoss(reduction='none')
         self.bce_loss = nn.BCELoss(reduction='none')
-        self.stride = 32 #strides[layer_no]
+        self.stride = 32 # strides[layer_no]
         self.all_anchors_grid = [(w / self.stride, h / self.stride)
                                  for w, h in self.anchors]
         self.masked_anchors = [self.all_anchors_grid[i]
@@ -63,9 +71,9 @@ class MCNhead(nn.Module):
         self.dconv = nn.Conv2d(in_channels=in_ch,
                               out_channels=self.n_anchors * (self.n_classes + 5),
                               kernel_size=1, stride=1, padding=0)
-        self.sconv=nn.Sequential(aspp_decoder(in_ch,__C.HIDDEN_SIZE//2,1),
+        self.sconv=nn.Sequential(aspp_decoder(in_ch, hidden_size//2, 1),
                                  nn.UpsamplingBilinear2d(scale_factor=8)
-                                 )
+                                )
 
 
     def nls(self,pred_seg,pred_box,weight_score=None,lamb_au=-1.,lamb_bu=2,lamb_ad=1.,lamb_bd=0):
@@ -79,11 +87,10 @@ class MCNhead(nn.Module):
             #hard-nls
             mask=torch.zeros_like(pred_seg)
             pred_box = pred_box[:, :4].long()
-            # select_mask=torch.ones_like(pred_seg)
             for i in range(pred_seg.size()[0]):
                 mask[i,pred_box[i][1]:pred_box[i][3]+1,pred_box[i][0]:pred_box[i][2]+1]=1.
-        # print((pred_seg).size(),mask.size())
         return pred_seg*mask
+    
     def co_energe(self,x_map,y_map,x_attn,y_attn,eps=1e-6):
         """
         :param x_map:  h*w
@@ -101,20 +108,16 @@ class MCNhead(nn.Module):
         cosin_sim=(cosin_sim+1.)/2.
         co_en=torch.einsum('blk,bl,bk->b',[cosin_sim,x_map,y_map])
         return -torch.log(co_en+eps)
+    
     def forward(self, xin,yin, x_label=None,y_label=None,x_map=None,y_map=None,x_attn=None,y_attn=None):
-        # print(0)
         output = self.dconv(xin)
-
         mask=self.sconv(yin)
-
-
 
         batchsize = output.shape[0]
         fsize = output.shape[2]
         n_ch = 5 + self.n_classes
         dtype = torch.cuda.FloatTensor if xin.is_cuda else torch.FloatTensor
         devices=xin.device
-
 
         output = output.view(batchsize, self.n_anchors, n_ch, fsize, fsize)
         output = output.permute(0, 1, 3, 4, 2).contiguous()
@@ -255,20 +258,5 @@ class MCNhead(nn.Module):
         loss_det = loss_xy.sum() + loss_wh.sum() + loss_obj.sum()
         loss_det/=float(batchsize)
         loss_cem = self.co_energe(x_map, y_map, x_attn, y_attn)
-        loss = loss_det.sum() + loss_seg.sum()+loss_cem.sum()
-        return loss,loss_det,loss_seg
-
-def smooth_L1(y_true, y_pred,sigma=3.0):
-    sigma_squared = sigma ** 2
-
-    # compute smooth L1 loss
-    # f(x) = 0.5 * (sigma * x)^2          if |x| < 1 / sigma / sigma
-    #        |x| - 0.5 / sigma / sigma    otherwise
-    regression_diff = y_true - y_pred
-    regression_diff = torch.abs(regression_diff)
-    regression_loss = torch.where(
-        regression_diff<(1.0 / sigma_squared),
-        0.5 * sigma_squared * torch.pow(regression_diff, 2),
-        regression_diff - 0.5 / sigma_squared
-    )
-    return regression_loss.sum()
+        loss = loss_det.sum() + loss_seg.sum() + loss_cem.sum()
+        return loss, loss_det, loss_seg
