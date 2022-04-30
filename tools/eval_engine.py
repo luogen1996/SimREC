@@ -132,7 +132,7 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
             for item in mask_aps:
                 writer.add_scalar("Acc/MaskIoU@%.2f"%item, np.array(mask_aps[item]).mean(), global_step=epoch)
 
-        logger.info(f' * BoxIoU@0.5 {box_ap.avg:.3f} MaskIoU {mask_ap.avg:.3f}')
+        logger.info(f' * BoxIoU@0.5 {box_ap.avg_reduce:.3f} MaskIoU {mask_ap.avg_reduce:.3f}')
 
     if ema is not None:
         ema.restore()

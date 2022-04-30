@@ -36,7 +36,7 @@ def build_lr_scheduler(cfg, optimizer, n_iter_per_epoch):
             warmup_epochs=cfg.train.warmup_epochs,
             epochs=cfg.train.epochs,
             decay_epochs=cfg.train.scheduler.decay_epochs,
-            lr_decay_rate=cfg.train.lr_decay_rate,
+            lr_decay_rate=cfg.train.scheduler.lr_decay_rate,
             n_iter_per_epoch=n_iter_per_epoch,
         )
     

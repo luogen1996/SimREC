@@ -38,7 +38,6 @@ class SimREC(nn.Module):
         self.attention_manner = attention_manner
         self.head=head
         
-    
     def frozen(self,module):
         if getattr(module,'module',False):
             for child in module.module():

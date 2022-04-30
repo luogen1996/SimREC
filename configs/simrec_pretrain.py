@@ -13,6 +13,9 @@ train.output_dir = "./output/det_base_refcoco_vg_baseline"
 dataset.dataset = "merge"
 dataset.max_token_length = 15
 
+# Refine optim
+optim.lr = train.base_lr
+
 # Refine model cfg
 model.visual_backbone.pretrained = True
 model.visual_backbone.freeze_backbone = False

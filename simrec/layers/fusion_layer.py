@@ -257,14 +257,14 @@ class SimpleFusion(nn.Module):
             nn.LeakyReLU(0.1)
         )
 
-    def forward(self, x,y):
+    def forward(self, x, y):
         x=self.v_proj(x)
         y=self.q_proj(y.unsqueeze(2).unsqueeze(2))
         return self.norm(x*y)
 
 
 class MultiScaleFusion(nn.Module):
-    def __init__(self,v_planes=[256,512,1024],hiden_planes=512,scaled=True):
+    def __init__(self,v_planes=[256,512,1024], hiden_planes=512, scaled=True):
         super().__init__()
         self.up_modules=nn.ModuleList(
             [nn.Sequential(

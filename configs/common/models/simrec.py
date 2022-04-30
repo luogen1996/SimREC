@@ -2,9 +2,9 @@ import torch.nn as nn
 
 from simrec.config import LazyCall
 from simrec.models.simrec import SimREC
-from simrec.models.backbones.cspdarknet import CspDarkNet
-from simrec.models.heads.rec_heads import REChead
-from simrec.models.language_encoders.lstm_sa import LSTM_SA
+from simrec.models.backbones import CspDarkNet
+from simrec.models.heads import REChead
+from simrec.models.language_encoders import LSTM_SA
 from simrec.layers.fusion_layer import SimpleFusion, MultiScaleFusion, GaranAttention
 
 model = LazyCall(SimREC)(
