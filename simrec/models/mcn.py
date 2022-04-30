@@ -47,9 +47,9 @@ class MCN(nn.Module):
     def forward(self, x,y, det_label=None,seg_label=None):
         x=self.visual_encoder(x)
         y=self.lang_encoder(y)
-        
-        x[-1]=self.fusion_manner(x[-1],y['flat_lang_feat'])
-        bot_feats,top_feats=self.multi_scale_manner(x)
+
+        x[-1]=self.fusion_manner(x[-1] ,y['flat_lang_feat'])
+        bot_feats, _, top_feats=self.multi_scale_manner(x)
         bot_feats,seg_map,seg_attn=self.seg_garan(y['flat_lang_feat'],bot_feats)
         top_feats,det_map,det_attn=self.det_garan(y['flat_lang_feat'],top_feats)
         

@@ -257,7 +257,7 @@ class SimpleFusion(nn.Module):
             nn.LeakyReLU(0.1)
         )
 
-    def forward(self, x,y):
+    def forward(self, x, y):
         x=self.v_proj(x)
         y=self.q_proj(y.unsqueeze(2).unsqueeze(2))
         return self.norm(x*y)

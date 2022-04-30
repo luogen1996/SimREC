@@ -31,7 +31,7 @@ model = LazyCall(MCN)(
     ),
     fusion_manner=LazyCall(SimpleFusion)(
         v_planes=1024,
-        q_planes=1024,
+        q_planes=512,
         out_planes=1024,
     ),
     det_attention=LazyCall(GaranAttention)(
