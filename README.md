@@ -123,7 +123,7 @@ This project is released under the [Apache 2.0 license](LICENSE).
 
 ## Citation
 
-If this repository is helpful for your research, or you want to refer the provided results in your paper, you can cite the corresponding paper:
+If this repository is helpful for your research, or you want to refer the provided results in your paper, consider cite:
 ```
 @article{luo2022what,
   title={What Goes beyond Multi-modal Fusion in One-stage Referring Expression Comprehension: An Empirical Study},
@@ -165,6 +165,14 @@ year = {2020}
   journal={IEEE Transactions on Neural Networks and Learning Systems},
   year={2021},
   publisher={IEEE}
+}
+```
+```BibTeX
+@misc{luo2022simrec,
+  author =       {Gen Luo and Tianhe Ren},
+  title =        {SimREC},
+  howpublished = {\url{https://github.com/luogen1996/SimREC}},
+  year =         {2022}
 }
 ```
 ## Acknowledgement
