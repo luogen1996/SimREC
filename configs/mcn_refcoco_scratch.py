@@ -4,12 +4,6 @@ from .common.train import train
 from .common.optim import optim
 from .common.models.mcn import model
 
-
-# Refine data path depend your own need
-dataset.ann_path["refcoco"] = "/home/rentianhe/dataset/rec/anns/refcoco.json"
-dataset.image_path["refcoco"] = "/home/rentianhe/dataset/rec/images/train2014"
-dataset.mask_path["refcoco"] = "/home/rentianhe/dataset/rec/masks/refcoco"
-
 # # Refine training cfg
 train.output_dir = "./output/mcn_refcoco_scratch"
 train.batch_size = 32

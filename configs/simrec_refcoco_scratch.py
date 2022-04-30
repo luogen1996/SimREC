@@ -18,6 +18,9 @@ train.log_period = 10
 train.evaluation.eval_batch_size = 32
 train.sync_bn.enabled = False
 
+# Refine optim
+optim.lr = train.base_lr
+
 # Refine model cfg
 model.visual_backbone.pretrained = True
 model.visual_backbone.pretrained_weight_path="./data/weights/cspdarknet_coco.pth"
