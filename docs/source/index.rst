@@ -10,4 +10,3 @@ Welcome to libai's documentation!
    :maxdepth: 3
 
    basics/index
-   modules/index
