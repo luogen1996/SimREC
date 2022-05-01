@@ -163,3 +163,39 @@ train = dict(
     seed = 123456,
 )
 ```
+
+#### optim
+This is the configuration for the optim definition. Please refer to `configs/common/optim.py` for the default optim config:
+```python
+from torch.optim import Adam
+
+from simrec.config import LazyCall
+
+optim = LazyCall(Adam)(
+    # optim.params is meant to be set before instantiating
+    lr=0.0001,
+    betas=(0.9, 0.98),
+    eps=1e-9
+)
+```
+
+
+#### Use the default config in your own config file
+The users do not have to rewrite all the config every time. You can use the default config file provided in SimREC by importing them as the python file. For example:
+```python
+# import the default config
+from simrec.config import LazyCall
+from .common.dataset import dataset
+from .common.train import train
+from .common.optim import optim
+from .common.models.simrec import model
+
+# modify them according to your own needs
+# refine the cfg
+train.output_dir = "./your/own/path"
+train.batch_size = 32
+train.save_period = 1
+train.log_period = 10
+train.evaluation.eval_batch_size = 32
+train.sync_bn.enabled = False
+```

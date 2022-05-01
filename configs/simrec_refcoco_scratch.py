@@ -10,7 +10,7 @@ dataset.ann_path["refcoco"] = "/home/rentianhe/dataset/rec/anns/refcoco.json"
 dataset.image_path["refcoco"] = "/home/rentianhe/dataset/rec/images/train2014"
 dataset.mask_path["refcoco"] = "/home/rentianhe/dataset/rec/masks/refcoco"
 
-# # Refine training cfg
+# Refine training cfg
 train.output_dir = "./output/test_no_syncbn_one_gpu"
 train.batch_size = 32
 train.save_period = 1
