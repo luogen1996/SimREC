@@ -20,5 +20,5 @@ optim.lr = train.base_lr
 
 
 # Refine model cfg
-model.visual_backbone.pretrained = False
-model.visual_backbone.pretrained_weight_path="./data/weights/darknet_coco.pth"
+model.visual_backbone.pretrained = True
+model.visual_backbone.pretrained_weight_path="./data/weights/darknet_coco.weights"
