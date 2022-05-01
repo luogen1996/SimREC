@@ -7,5 +7,6 @@ THE BASICS
 
    Installation.md
    config_system.md
+   getting_started.md
    
    
