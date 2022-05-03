@@ -34,7 +34,7 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
     mask_aps={}
     for item in np.arange(0.5, 1, 0.05):
         mask_aps[item]=[]
-    meters = [batch_time, data_time, losses, box_ap, mask_ap,inconsistency_error]
+    meters = [batch_time, data_time, losses, box_ap, mask_ap, inconsistency_error]
     meters_dict = {meter.name: meter for meter in meters}
     
     with torch.no_grad():
@@ -116,11 +116,11 @@ def validate(cfg, model, data_loader, writer, epoch, ix_to_token, logger, rank, 
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 logger.info(
                     f'Evaluation on {prefix}: [{idx}/{len(data_loader)}]  '
-                    f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})  '
-                    f'Loss {losses.val:.4f} ({losses.avg:.4f})  '
-                    f'BoxIoU@0.5 {box_ap.val:.4f} ({box_ap.avg:.4f})  '
-                    f'MaskIoU {mask_ap.val:.4f} ({mask_ap.avg:.4f})  '
-                    f'IE {inconsistency_error.val:.4f} ({inconsistency_error.avg:.4f})  '
+                    f'Time {batch_time.val:.3f} ({batch_time.avg_reduce:.3f})  '
+                    f'Loss {losses.val:.4f} ({losses.avg_reduce:.4f})  '
+                    f'BoxIoU@0.5 {box_ap.val:.4f} ({box_ap.avg_reduce:.4f})  '
+                    f'MaskIoU {mask_ap.val:.4f} ({mask_ap.avg_reduce:.4f})  '
+                    f'IE {inconsistency_error.val:.4f} ({inconsistency_error.avg_reduce:.4f})  '
                     f'Mem {memory_used:.0f}MB')
             batch_time.update(time.time() - end)
             end = time.time()
