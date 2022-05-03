@@ -249,9 +249,6 @@ if __name__ == '__main__':
     cfg = LazyConfig.load(args.config)
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
 
-    # Environments setting
-    seed_everything(cfg.train.seed)
-
     # Distributed setting
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ["RANK"])
@@ -269,6 +266,10 @@ if __name__ == '__main__':
         rank=rank
     )
     torch.distributed.barrier()
+
+    # Environments setting
+    seed = cfg.train.seed + dist.get_rank()
+    seed_everything(seed)
 
     # Path setting
     output_dir = cfg.train.output_dir
