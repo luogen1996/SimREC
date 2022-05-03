@@ -210,7 +210,10 @@ def main(cfg):
             ema = EMA(model, cfg.train.ema.alpha, cfg.train.ema.buffer_ema)
         train_one_epoch(cfg, model, optimizer, scheduler, train_loader, scalar, writer, epoch, dist.get_rank(), ema)
         box_ap, mask_ap = validate(cfg, model, val_loader, writer, epoch, val_set.ix_to_token, logger, dist.get_rank(), save_ids=save_ids, ema=ema)
-        
+        max_box_ap = max(best_det_acc, box_ap)
+        max_mask_ap = max(best_seg_acc, mask_ap)
+        logger.info(f"Max BoxIoU@0.5: {max_box_ap:.2f}%, MaskIoU: {max_mask_ap:.2f}%")
+
         # save checkpoints
         if epoch % cfg.train.save_period == 0 or epoch == (cfg.train.epochs - 1):
             logger.info(f"saving checkpoints......")

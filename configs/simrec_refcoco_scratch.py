@@ -17,7 +17,7 @@ train.save_period = 1
 train.log_period = 10
 train.evaluation.eval_batch_size = 32
 train.sync_bn.enabled = True
-train.amp.enabled = True
+train.amp.enabled = False
 
 # Refine optim
 optim.lr = train.base_lr
