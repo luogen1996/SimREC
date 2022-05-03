@@ -8,7 +8,11 @@ from simrec.datasets.transforms.randaug import RandAugment
 from .train import train
 
 dataset = LazyCall(RefCOCODataSet)(
+    # the dataset to be created
+    # choose from ["refcoco", "refcoco+", "refcocog", "referit", "vg", "merge"]
     dataset = "refcoco",
+
+    # path to the files
     ann_path = {
                 'refcoco':'./data/anns/refcoco.json',
                 'refcoco+': './data/anns/refcoco+.json',
@@ -33,8 +37,12 @@ dataset = LazyCall(RefCOCODataSet)(
                 'refcocog': './data/masks/refcocog',
                 'referit': './data/masks/refclef'
             },
+    
+    # original input image shape
     input_shape = [416, 416],
     flip_lr = False,
+
+    # basic transforms
     transforms=LazyCall(transforms.Compose)(
         transforms = [
             LazyCall(transforms.ToTensor)(),
@@ -44,6 +52,8 @@ dataset = LazyCall(RefCOCODataSet)(
             )
         ]
     ),
+
+    # candidate transforms
     candidate_transforms = {
         # "RandAugment": RandAugment(2, 9),
         # "ElasticTransform": A.ElasticTransform(p=0.5),
@@ -55,7 +65,13 @@ dataset = LazyCall(RefCOCODataSet)(
         #     value="random",
         # )
     },
+
+    # the max truncked length for language tokens
     max_token_length = 15,
+
+    # use glove pretrained embeddings or not
     use_glove = True,
+
+    # datasets splits
     split = "train",
 )
