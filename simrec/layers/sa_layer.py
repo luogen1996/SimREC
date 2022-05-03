@@ -173,7 +173,7 @@ class MHAtt(nn.Module):
 
         # print(scores.size(),mask.size())
         if mask is not None:
-            scores = scores.masked_fill(mask, -1e9)
+            scores = scores.masked_fill(mask, -1e4)
 
         att_map = F.softmax(scores, dim=-1)
         att_map = self.dropout(att_map)
