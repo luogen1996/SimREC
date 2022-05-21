@@ -2,13 +2,13 @@
 
 [![Python](https://img.shields.io/badge/python-blue.svg)](https://www.python.org/)
 ![PyTorch](https://img.shields.io/badge/pytorch-%237732a8)
-![MAC-Group](https://img.shields.io/badge/mac-group-orange.svg)](https://mac.xmu.edu.cn/)
+[![MAC-Group](https://img.shields.io/badge/mac-group-orange.svg)](https://mac.xmu.edu.cn/)
 
 SimREC is a simple and lightweight codebase for the research of referring expression comprehension and segmentation,  supporting large-scale pre-training and multi-task learning.   SimREC includes the official implementations of our paper  "[Multi-task Collaborative Network for Joint Referring Expression Comprehension and Segmentation](https://openaccess.thecvf.com/content_CVPR_2020/papers/Luo_Multi-Task_Collaborative_Network_for_Joint_Referring_Expression_Comprehension_and_Segmentation_CVPR_2020_paper.pdf)" and  "[What Goes beyond Multi-modal Fusion in One-stage Referring Expression Comprehension: An Empirical Study](https://arxiv.org/pdf/2204.07913.pdf)" .  More models will be updated. 
 
 
 <p align="center">
-	<img src="./SimREC.jpg" width="550">
+	<img src="./misc/SimREC.jpg" width="550">
 </p>
 
 
